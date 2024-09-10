@@ -1,0 +1,207 @@
+Day-9 session-9(22/08/2024)
+---------------------------
+Recap:
+------
+1. Domain creation
+2. Domain transfer through Route 53 hosted zone 
+-> hosted keys ahouls not delete. if suppose you deleted the hosted zons then it will take time to update with the nameservers 
+3. Update nameservers in hostinger 
+
+Browser -> cache -> Os -> OS cache -> ISP DNS resolver -> root servers -> TLD information -> TLD Nameservers -> Nameservers -> records 
+
+Domain register -> It updates the nameservers to TLD 
+
+we have different types of records 
+A -> IP address 
+CNAME -> another domain request 
+MX -> mail servers 
+SOA -> Authorization 
+TXT -> validation purpose 
+NS -> nameservers 
+
+
+Now, in today's class
+---------------------
+-> mostly we use 'A' records and 'CNAME'
+
+Proxy:
+There are two types of proxies. They are 
+1. Forward proxy and 
+2. Reverse proxy 
+
+for example:
+------------
+-> Hotstar content is only accessable from US 
+-> we use VPNs for accessing the content from hotstar which is in US 
+-> We download VPN in our mobiles 
+-> It goes request from VPN to hotstar
+-> Here, client is our mobile and the server is Hotstar 
+-> client for hotstar is VPN but the real client is our mobile 
+-> The existance of VPN known by real client 
+-> On behalf of our mobile VPN is addressing 
+
+forward proxy : 
+---------------
+-> It is a client side proxy, only the client is aware of the proxy.
+
+Forward proxy advantages:
+--------------------------
+1. You can watch restricted content
+2. You can change Geo location
+3. client side proxy, only client is aware of proxy 
+4. Hiding the client identity 
+eg: VPN is an example for forward proxy 
+5. Traffic monitor 
+6. Secure connections 
+7. Content access restriction
+8. we can use it for cache purpose 
+
+
+-> In companies genereally they use cisco VPN 
+-> To traffic monitor, companies uses Cisco VPN 
+-> To establish the secure connections, companies uses VPNs to connect to the system 
+-> VPN is restricting other social media websites in company laptops by using VPN
+
+Reverse Proxy:
+--------------
+1. Only server is aware of the proxy 
+2. security between client and server 
+3. It is as a load balancer 
+4. SSL termination 
+
+-> nginx is a popular reverse proxy server and a popular load balance server 
+-> In AWS, we have ALB(application load balancer), that is also backend by nginx 
+-> A reverse proxy server is very powerful 
+
+What is the use of load balancer?
+---------------------------------
+-> It means to distribute the load between the servers 
+
+where do you find nginx cnfiguration:
+--------------------------------------
+/etc/nginx/nginx.conf --> this is the default configuration
+-> And if you want to include extra configuration --> include /usr/share/nginx/modules/*.conf;
+  
+
+where should be the website and where it searches for the folder
+-------------------------------------------
+/usr/share/nginx/html
+
+location of logs:
+------------------
+/var/logs/messages
+
+we are informing servers that we have more servers
+--------------------------------------------
+upstream backend {
+      server <server-1 IP address>; 
+      server <server-2 IP address>;
+	  }
+	  
+eg:
+
+upstream backend {
+      server 172.31.44.24; 
+      server 172.31.37.74;
+	  }
+	  
+
+-> This is for upstream 
+
+proxy_http_version 1.1;
+
+location / { proxy_pass http://backend/; }
+
+location /health {
+  stub_status on;
+  access_log off;
+}
+
+-> /usr/share/nginx/html --> default
+-> Ip or Ip/ --> default file is index.html
+/usr/share/nginx/html/index.html/
+
+Linux folder structure:
+--------------------------
+/ --> root directory of the OS 
+/bin(binaries) --> essential commands are here. ls, cat, grep, etc
+/sbin(system binaries) --> admin commands, reboot, iptables, etc
+/boot --> when linux server started, it referes boot directory for system configuration 
+/dev -> monitor/terminal, keyboard, printer, etc 
+/etc(extra configuration) --> system configuration files, service configuration etc 
+/home(home directory of users) --> all users directory are here, their personal files, user related configs
+/lib(libraries) --> libraries/dependencies required by OS equal to .dll in windows 
+/lib64(64 bit libs)
+/media(Media devices) --> CD, DVC, USB etc 
+/mnt(mount) -> adding extra disks 
+/opt(optional) -> if you want third party applications, custom applications you can keep here 
+/proc(processor) --> /proc/cpuinfo /proc/meminfo
+/root(root user) --> home directory of root user 
+/run(running information of server)
+/srv(service files) --> when you use your server to serve as a file server, you can use this 
+/swap(swap space) --> if 1 GB RAM is finished, then we will use this swap space for extension of RAM. It reserves the space 
+/sys --> system kernal info, devices info, etc 
+/tmp --> temporary directory, not at all important 
+/usr --> It consists of shared files and docs between all users
+/var(variables) --> logs and messages 
+
+-> cd /run/ --> ls -l --> ls --> we find processes information and there process numbers 
+
+important directories:
+----------------------
+/etc
+/var
+/opt 
+/bin 
+
+In server, everything is based on configuration 
+------------------------------------------------
+1. Install application runtime --> nodejs, java etc 
+2. create a user 
+3. create a folder 
+4. download code 
+5. Install dependencies
+6. create systemctl services 
+
+some additionals commands:
+---------------------------
+1. how to check RAM usage?
+command is, free -m
+
+2. how can you check hard disk memory?
+command is, df -hT --> where hT is human readable print formate
+
+use help command, df --help 
+
+-> top command 
+-> history command 
+
+
+Shell scripting -> keep all your commands in a file and run that file 
+
+what is shell?
+-> shell is a interpreter in Linux, that checks and executes the users commands 
+-> /bin/bash --> interprets every command issued inside linux server 
+
+1. carry one by one to home --> manual formate
+2. use a truck, keep everything inside and carry to home --> automation process  
+
+-> If a command gives error, let us proceed or clear the error and proceed 
+
+Error handling: 
+-----------------
+when you run through program, it should be able to check previous command is success, if proceed, if failure stop and inform user
+
+Algorithm:
+----------
+-> write down your steps in your own language. like what to do? -> general language 
+-> Install a package through shell script?
+-> check you root access or not 
+-> if no root access, show the erroe
+-> check if already installed or not, inform already installed
+-> if noyt installed, install it
+-> check success or not
+
+
+-> All the scripts are stored in GitHub
+ 

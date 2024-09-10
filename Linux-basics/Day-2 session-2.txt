@@ -1,0 +1,212 @@
+Day-2 session-2
+Date : 13/04/2024 - Tuesday
+===============================
+Recap
+-----
+what is DevOps?
+Waterfall model vs Agile vs DevOps
+SDLC
+what is computer
+client server architecture
+Linux advantages
+
+create Linux server
+connect to it
+Create firewall/security group
+Command syntax
+Few commands
+
+-> Before creating Linux server, can we connect to the server if we know the IP address?
+-> Like, can we open our profile in the facebook directly?
+-> The main thing to connect any server is Authentication
+-> Only we can connect if the authentication is successfull. And there are three ways to authenticate
+-> Here they are,
+
+Authentication
+---------------
+1. what you know   --> username and password  --> Used in private systems
+2. what you have   --> username and tokens(RSA, Authenticator) --> Used in public systems (this is popular)
+3. what you are --> fingerprints, palm, retina, face, etc --> public systems
+
+for example;
+lock and key are pair
+-> Box and lock can be public becoz, it visible to everyone
+-> we can able to see the key but we cannot open. Becoz, key is private
+-> So, the mechanism called key-based mechanism
+
+-> Exactly, in software also we can find key-based mechanisms
+-> we will generate one key-pair which contains public key and private key 
+-> key_pair == public key + private key
+-> Here is nothing but server or node or IP address
+-> public key is inside server, while authenticating user should send his username and private-key
+-> In Linux server and in software, we can frequently hear the word so called protocol
+
+How many ports are there in a system?
+-------------------------------------
+for example;
+-> we are sending a letter from Delhi to Hyderabad
+-> So, we will write To address(which includes flat no, apartment name, street name, city, pincode)
+-> pincode(HYD DTDC)
+-> next they will see street name
+-> next Apartment name
+-> If there is no flat number, letter is stuck at particular apartment name
+
+-> So, Likewise Server consists of lot of services
+-> Every service has protocol
+-> we should follow that protocol then only we can connect to the server
+-> for example, If we open Google.com
+-> we can open google by using HTTP/HTTPS
+-> we cannot see what is inside the google servers --> public users 
+-> If suppose there is any problem in the server, google employees directly connect to server and check what is inside the server by using SSH protcol
+-> SSH protocol is used to connect to servers with particular number 
+-> As in the above example, pin code is the main thing
+-> Likewise, in SSH protocol runs on particular port number 22
+-> we have so many protocols with port numbers 
+-> HTTP - 80 / HTTPS - 443
+-> we have 0-65,535 ports in one server which is nothing but 65,536 ports 
+-> 0-65,535 ports == 65,536 ports 
+-> SSH is service which runs on port no. 22
+-> http -->  80
+-> https --> 443
+-> mysql --> 3306
+
+-> If we want to connect Linux server through SSH 
+-> we need to send protocol, port, username, password/private-key
+
+-> To generate the key we have a command 
+-> ssh-keygen -f <file-name>
+-> like we are manufacturing a public key and private-key
+-> So, to connect to the server we should need client 
+-> for example, if we want to connect to the google - browser is the client 
+-> Likewise, if we want to connect to the Linux server via SSH we need a client
+-> we should have some client to connect Linux server
+-> So, we have so many clients to connect to the Linux server. They are; gitbash, putty, mobexterm
+-> we have many purposes by using GitBash 
+-> we can connect to the Git, Linux server, Mini Linux in windows through GitBash
+
+
+-> pwd == present working dircetory or current working directory 
+-> cd == change directory
+
+Steps to create the public key by using SSH
+--------------------------------------------
+1. create a folder in C-drive called devops
+2. create a another folder inside the devops called daws-81s
+3. copy the path /c/devops/daws-81s and give that in GitBash
+4. After giving a path, create the ssh key-pair by using the command ssh-keygen -f linux-key
+5. press enter and you will get two files in the folder daws-81s(linux-key and linux-key.pub)
+6. Open your AWS account, search for EC2 --> Network & security --> select key-pair --> import key-pair --> enter the name of the key-pair --> select the file contents from linux-key.pub(check the curser should not enter the next line - should be end of the line of contents) --> import the key-pair
+7. Before creating the server, we have to create the security group(firewall) 
+8. In Network & security --> open security group --> enter the security group name(allow-ssh) --> enter the description(Allow SSH connections to my Linux server on port 22) --> Then click for Inbound rules --> Type(SSH)[by default you will get the port number 22 for SSH] --> enter the IP address(for practice purpose we are taking google IP address - 0.0.0.0/0)  --> enter the description-optional(allowing port no 22 from public)  --> create security group
+9. First import public key and second create firewall
+10. Now we can create server, In EC2 --> click on Instances --> click on Launch instances --> enter the name(Linux) --> In Quick start click on browse more AMIs --> select Amazon Linux 2023 AMI(free tier for practice purpose) --> Amazon Linux 2023 == CentOS == RedHat --> Instances type(for free tier select either t2.micro or t3.micro) --> select t3.micro(2 CPUs and 1GB memory) --> In the key-pair(login) select the key-pair name what we have created(i.e daws-81s) --> In Network settings, click on select existing security group. In common security group, enter the security group what we have created(i.e allow-ssh) --> confiuration storage(8GB) --> and click on launch instance 
+
+we have, 
+-> By default, Amazon Linux username is ec2-user
+-> IP address - 18.232.86.62
+-> SSH protocol
+-> port number 22
+-> private-key
+
+Connecting by using GitBash
+----------------------------
+-> ls -l (we will get all the files with details)
+-> Usually, private-key has extension of .pem(example: linux-key.pem)
+-> for public-key has extension of .pub(example: linux-key.pub)
+-> syntax: ssh -i linux-key.pem ec2-user@18.232.86.62(here, -i represents the passing of private-key)[shortcut for pasting the copied content in GitBash is shift+insert]
+-> After entering the above syntax, press enter button and type 'Yes' and press enter again and we will launch into linux server 
+
+-> After launching the Linux server we will directly land into home directory(/home/<user-name>)
+-> $ - dollar symbol represents the normal user 
+
+what is command?
+-----------------
+-> syntax: command-name<options><inputs>
+Here, -<single-chat> or --<word> == options 
+-> pwd = present working directory
+-> cd = change directory
+-> clear = clear the screen
+-> cd / = it change the directory to root directory
+-> / = represents the root directory
+-> ls = list the sub- directories
+-> ls -l = It gives the lengthy format list of files (which gives the details of the files) --> which gives in alphabetical order 
+-> ls -lt = It gives based on time(latest files on top)[here t means time]
+-> ls -ltr = It gives based on time but in reverse order(latest files on down)
+-> ls -la = which shows all the hidden files(here 'a' represents all files)[hidden files starts with .]
+-> ls --help = which gives a list of commands and there options with documentation
+
+CRUD operations:
+---------------
+C - create
+R - Read
+U - Update
+D - Delete
+
+for example: Amazon.com
+1. signup - creating profile in amazon website
+2. Login - reading my account details
+3. Password change - updating the profile 
+4. Account delete - deleting the account 
+
+Placing order - creating an order 
+changing order details - updating order 
+cancelling order - deleting order 
+
+-> In every bank or entire software, the operations that happened in background is called CRUD(create,read,update,delete)
+for example: ls -l which means reading the files 
+-> touch<file-name> = creating a file
+example: touch devops.txt
+-> ls -l = reading the file
+-> cat > <file-name> = which is used to create the contents of the file(adding the text)
+example: cat > devops.txt[enter the content(Hi, iam learning devops)-> press enter -> type ctrl+D]
+-> cat devops.txt = reading the text(which displays the content of the file)
+-> Up arrow - for previous commands 
+-> Down arrow - for current commands
+-> Again enter the cat > devops.txt(enter the different content[Iam learning AWS]) --> cat devops.txt(shows 'Iam learning AWS') --> It overrides the content which avoids the previous content
+-> So, to overcome the overridden content we have another command(i.e cat >> devops.txt)
+-> cat >> devops.txt = It appends the content to the previous text(here '>>' represent adding the text)
+for example: cat >> devops.txt(enter the text "Iam learning devops") -->cat devops.txt(which shows previous text also[Iam learning AWS and Iam learning devops])
+-> Create another text file = touch development.txt
+-> ls -l = which gives development.txt and devops.txt
+-> enter cat devo + tab button for continous of the file(which gives cat devops.txt)
+
+pwd = /home/ec2-user
+-> cd .. = It is used to go one step backwards 
+for example; 
+pwd = /home
+-> cd = to move to home directory
+-> rm = which is used to remove file 
+for example;
+rm devops.txt --> ls -l(gives only development.txt) --> devops.txt got removed
+-> -rw-r--r--. 1 ec2-user ec2-user 0 Aug 14 03:19 development.txt(here '-' represents the file)
+-> mkdir <directory-name>= to create a directory(itself called make directory)
+for exmaple;
+mkdir devops(which create a new folder/directory called devops) --> ls -l(shows the dircetory)--> drwxr-xr-x. 2 ec2-user ec2-user 6 Aug 14 03:29 devops (here 'd' represents the directory)
+-> d --> for directory
+-> - --> for file
+-> cd devops/ = to enter into the directory --> pwd = /home/ec2-user/devops
+-> create another directory called 'mkdir aws'
+-> ls -l = which gives the details,
+drwxr-xr-x. 2 ec2-user ec2-user  6 Aug 14 03:34 aws
+drwxr-xr-x. 2 ec2-user ec2-user 23 Aug 14 03:34 devops
+
+-> rmdir <directory-name> = which removes the directory 
+for example;
+rmdir aws --> ls -l = which gives only devops directory(drwxr-xr-x. 2 ec2-user ec2-user 23 Aug 14 03:34 devops)
+-> rmdir = it can only removes the empty directory
+for example;
+rmdir devops
+rmdir: failed to remove 'devops': Directory not empty
+-> rm -r <directory-name>  = remove directories and their contents recursively
+-> mv <old-file-name> <new-file-name> = which renames the old file name with the new file name(mv represents move)
+for example;
+touch awss.txt --> ls -l( which gives awss.txt) --> mv awss.txt aws.txt --> ls -l(which gives aws.txt)
+-> mkdir devopss --> ls -l(which gives devopss directory) --> mv devopss devops --> ls -l(which changes to devops directory)
+
+
+Absolute path and relative Path
+-------------------------------
+-> cd .. = relative path
+-> cd /home/ec2-user = absolute path or complete path(complete from the scratch)
+
+

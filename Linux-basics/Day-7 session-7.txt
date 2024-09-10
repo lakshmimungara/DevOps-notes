@@ -1,0 +1,263 @@
+Day-7 session-7(20/08/2024)
+----------------------------
+
+Recap:
+------
+EC2 -> no.of instances-2 -> enter the name -> enter devops-practice -> Redhat -> No key_pair -> security group is allow-all -> launch instance 
+
+-> Two instances are database-server and backend-server 
+- we are connecting with the database 
+- ssh ec2-user@IP address
+- sudo su -
+- dnf install mysql-server -y
+- For every server software, client sftware is mandatory to connect 
+=> for example;
+facebook is like a server, if facebook employees wants to connect they use GitBash and if facebook users wants to connect they user browser. Here, browser is a client 
+
+-> Mysql server is a heavy package because it is database server 
+-> systemctl enable mysqld 
+-> systemctl start <database>
+eg: system start mysqld
+-> Password setup --> mysql_secure_instalation --set-root-pass ExpenseApp@1
+
+Command to check mysql --> systemctl status mysqld --> Here, 'd' id daemon which runs continuosly 
+command to check port opened or not --> netstat -lntp 
+command to check process is running or not -> ps -ef | grep mysql 
+-> prompt mysql
+- show databases;
+- use <DB>;
+- show tables;
+- select * from <table-name>;
+---------------------------------------------------------------------
+
+Now, we will discuss about backend-server
+-> Again we have to take new window in GitBash 
+-> So, we use putty and super putty 
+
+-> ssh username@Ip address 
+-> Here, username is fixed and IP address is Dynamic 
+
+
+- Download Putty 
+- Session name - daws-81s
+- Connection -> Data -> username - ec2-user  
+- Save the settings 
+If you want to use with IP address 
+-> enter the Ip address and load 
+
+-> we don't have any new tab option in Putty. It is heavily used in projects 
+
+- Download superputty 
+- we can have multiple windows at a time 
+
+-> In backend-server -> Java, DotNet. Python, NodeJS, go, ruby, php, etc 
+
+NodeJs:
+-------
+.exe file contains dependencies --> nginx, git, etc 
+-> we will not write the code from the scratch, some members write the common components and they will keep in the internet. So they are called libraries 
+
+what is library?
+---------------
+whenever you want you can consume, no need to buy. It is common for everyone. Many people can use it 
+
+Likewise, NodeJS is also dependent on dependencies they are mentioned in package.json 
+
+Build file == package.json -> where you mention your project metadata. Name, description, version, dependencies and their versions
+
+Build tool = npm -> It will search package.json in your folder and it will get the dependencies/libraries from internet
+
+source file/extension --> *.js 
+
+Java:
+------
+Build file == pom.xml -> where you mention your project metadata. Name, description, version, dependencies and their versions
+
+Build tool = maven -> It will search package.json in your folder and it will get the dependencies/libraries from internet
+
+source file/extension --> *.java
+
+python:
+-------
+Build file == requirement.txt -> where you mention your project metadata. Name, description, version, dependencies and their versions
+
+Build tool = pip -> It will search package.json in your folder and it will get the dependencies/libraries from internet
+
+source file/extension --> *.py
+
+-> whatever the programming lanaguge, their should be one build file and source code file 
+-> Developers choose the version to download of NodeJs
+
+-> sudo su - 
+-> dnf module list nodejs --> here module is in one OS it manages multiple versions  
+-> dnf module disable nodejs:18 -y
+-> dnf module enable nodejs:20 -y 
+-> dnf install nodejs -y 
+
+Configure the application user:
+-------------------------------
+when the application is running we create system users -> used for common purpose 
+
+-> useradd expense 
+-> /app -> used this folder to place the application 
+-> mkdir /app 
+-> curl -o /tmp/backend.zip <URL>
+-> cd /tmp 
+-> ls -l
+-> cd /app
+-> unzip /tmp/backend.zip 
+-> ls -l
+-> cat package.json
+-> npm install --> In a particular folder, It checks the libraries and downloads from the internet 
+-> we will find node_modules as a new file which contains all the dependencies
+-> cd /node_modules 
+-> ls -l 
+
+Summarize:
+
+NodeJS
+-------
+build file --> package.json
+build tool --> npm(node package manager)
+source file --> *.js 
+npm install 
+node_modules 
+
+dnf install nginx -y 
+systemctl start nginx 
+
+/etc/systemd/system --> you can place all your service files 
+-> extension should be --> .service 
+
+syntax:
+-------
+[Unit]
+Description = Backend Service 
+
+[Service]
+User=expense 
+Environment = DB_HOST="<MYSQL-SERVER-IPADDRESS>"
+ExecStart=/bin/node /app/index.js 
+SyslogIdentifier=backend 
+
+[Install]
+WantedBy=multi-user.target
+
+Ip address varies based on where you are...
+-> Communication is within the network we use private Ip address 
+-> For outside the network we use Public Ip address 
+
+-> Public Ip address may change when you restart the server, but private Ip address will never chnage 
+
+-> vim /etc/systemd/system/backend.service 
+-> systemctl daemon-reload --> which reloads the new files 
+-> systemctl start backend
+-> systemctl enable backend
+-> systemctl status backend 
+-> netstat -lntp 
+-> ps -ef | grep node
+-> cat schema/backend.sql 
+
+-> we have to check logs when it gets failed 
+-> /var/log/messages --. Linux logs everything we will find here 
+-> less /var/log/messages  --> less is which is same like vim --> find the error 
+-> check the schemas in mysql database 
+
+mysql 
+-> show databases;
+-> create a schema/database for expense project 
+create database tracsactions;
+-> create a table 
+
+-> dnf install mysql -y 
+-> mysql -h <Mysql server Ip address> -uroot -pExpenseApp@1 < /app/schema/backend.sql 
+
+-> check in mysql 
+-> show databases;
+-> use transactions;
+-> show tables;
+
+we can also check in backend 
+-> mysql -h <mysql server ip address> -uroot -pExpenseApp@1
+-> show databases;
+-> systemctl restart mysql 
+-> systemctl status backend
+-> netstat -lntp 
+-> ps -ef | grep node 
+
+Mostly, backend applications opens --> 8080
+-> we ahve to check if the backend is connecting to the database or not 
+-> for example, we check if the internet is working or not by typing google.com
+-> so, likewise we use ping command
+
+-> here, App server connects to the DB server 
+-> command is, ping <DB private ip address>
+-> This is a troubleshooting command --> ping 
+-> DB server port number --> 3306
+
+-> To check if we are connecting to the DB port number or not 
+-> command is, telnet <DB private Ip address> 3306
+
+Frontend:
+---------
+-> create frontend server 
+-> EC2 -> launch instance -> devops-practise -> redhat -> t3.micro-> without key_pair -> allow-all -> launch instance 
+
+-> Go to super putty 
+-> enter the public Ip address of frontend server 
+-> rename as frontend -> if not connected restart it 
+-> click on Accept 
+-> frontend applications are static
+-> we install in Nginx package 
+-> previously we used to use Apache and now everyon e are using Nginx 
+
+-> sudo su - 
+-> dnf install nginx -y 
+-> systemctl start nginx 
+-> systemctl enable nginx 
+-> /etc/nginx --> configuration of nginx is here 
+-> /usr/share/nginx/html --> here you need to place your websites 
+-> /var/log/nginx  --> here nginx places the logs 
+-> open the nginx page bhy using public ip address of frontend server 
+-> cd /usr/share/nginx/html/ 
+-> ls -l 
+-> content is all in index.html 
+-> /usr/share/nginx/html/index.html --> It loads automatically when you hit Ip address 
+-> rm -rf * --. we don't require these all content. so, deleting all by using this command
+-> ls -l  --> shows total 0 
+
+what if we are outside the server?
+----------------------------------
+-> cd 
+-> rm -rf /usr/share/nginx/html/* --> forcefuly deleting files which we don't require 
+-> We are downloading the code whatever the developers wrote by using command into tmp directory, 
+curl -o /tmp/frontend.zip <URL>
+-> cd /usr/share/nginx/html 
+-> unzip /tmp/frontend.zip 
+-> ls -l 
+
+-> web server should know the app server ip address. so, we have to configure to know the ip address 
+-> command is, vim /etc/nginx/default.d/expense.conf
+proxy_http_version 1.1;
+
+location /api/ { proxy_pass http://<private Ip of backend>:8080/; }
+
+location /health {
+  stub_status on;
+  access_log off;
+}
+
+-> Make sure there should not be any extra spaces 
+-> systemctl start nginx 
+-> Refresh the page with the frontend public ip address 
+-> enter the data and we can find that data in the database
+
+-> Go to database -> select * from tracsactions;
+-> web server is the interface to see and enter the data 
+-> whatever we are entering the data that is sent to the app server 
+-> App server performs CRUD operations on Database 
+-> If suppose the website is down and then restart the server by using,
+systemctl restart backend 
+
+
+

@@ -1,0 +1,294 @@
+Day-8 session-8(22/08/2024)
+---------------------------
+Recap
+-----
+-> Open AWS -> EC2 instance -> launch instance 
+-> create 3 instances manually
+-> database-server, backend-server and frontend-server 
+-> devops-practice -> redhat 
+-> no key_pair 
+-> allow-all 
+
+-> Now, open super putty
+-> give the database-server privare Ip address 
+-> sudo su -
+-> dnf install mysql-server -y 
+-> systemctl enable mysqld
+-> systemctl start mysqld
+-> mysql_secure_installation --set-root-pass ExpenseApp@1
+-> netstat -lntp
+-> If once port is opened then it is running successfully 
+
+Now, backend-server 
+-> take the public ip address of backend-server
+-> go to super putty add the ip address connect to it 
+-> sudo su -
+-> dnf module disable nodejs:18 -y
+-> dnf module enable nodejs:20 -y
+-> dnf install nodejs -y
+
+Configure the application.
+Add application User
+-> useradd expense
+-> mkdir /app
+-> curl -o /tmp/backend.zip https://expense-builds.s3.us-east-1.amazonaws.com/expense-backend-v2.zip
+-> cd /app
+->unzip /tmp/backend.zip
+-> Now, install it and check if the package.json file is there or not by using command, 
+-> npm install
+-> vim /etc/systemd/system/backend.service
+-> [Unit]
+Description = Backend Service
+
+[Service]
+User=expense
+Environment=DB_HOST="<MYSQL-SERVER-IPADDRESS>"
+ExecStart=/bin/node /app/index.js
+SyslogIdentifier=backend
+
+[Install]
+WantedBy=multi-user.target
+
+-> here, Ip address might change everytime 
+-> Automation : without touching the servers, tasks should automatically update 
+-> Till the course completion we learn how it automatically performs without login to server 
+-> login t server is a manual task 
+-> we have solution called DNS it checks whether the ip address changed or not 
+
+DNS: - Domain name system 
+--------------------------
+-> mysql.devops.com (server)--> it returns the IP address 
+-> we can remember the domain names easily 
+
+for example:
+-> we cannot remember the contact numbers which are saved in our mobiles and we can only remember the names 
+-> If number changed, we update in the mobile 
+
+-> Likewise,if suppose backend-server wants to connect with the database. Then suppose if we given name instead of ip address it returns the Ip address 
+-> So, this methodology is called DNS 
+
+How DNS works?
+--------------
+-> First, we need one domain 
+-. we have to purchase the domains 
+-> Domain registers --. godaddy, hostinger, AWS, azure, GCp etc 
+-> hostinger --> cheapest way to buy domains 
+-> Domain name is unique in the universe 
+
+for example
+------------
+-> for facebook, the domain is facebook.com 
+-> it is unique, we cannot take same again 
+
+-> Go to Hostinger website and signup 
+-> Login with the credentials 
+-> Domain --> get a new domain
+-> search with the unique name --> daws81s.online
+-> purchase the cheapest domain 
+-> purchase for one year --> we can stop the auto-renewal pay in phonepay --> it will charge only 122 rupees 
+-> It generates your domain 
+-> you can stop auto-renewal pay in the Hostinger website in Billing 
+
+How domain works ?
+------------------
+-> Computers can understand only numbers not the names and Humans can only understands names not the numbers 
+-> for example: Only numbers are standards in students registerations and in electricity meters  
+-> which bridges the names and numbers is called DNS 
+-> for example, 
+facebook.com is name and its ip address is the number 18.90.23.217
+
+-> what happens in the backend?
+---------------------------------
+-> facebook checks the browser cache for ip address of facebook.com 
+-> browser contacts OS, for Ip address of facebook.com 
+-> OS checks its cache now, it is not available
+
+who is responsible for domain to get an ip address 
+-------------------------------------------- 
+-> ISP(Internet service provider) is responsible for the DNS resolution 
+
+-> what's happening here, let's check 
+--------------------------------------
+-> OS is enabled to contact ISP DNS resolver 
+-> DNS resolver checks its cache
+
+who will give the IP address for domain 
+-------------------------------------------
+-> Root servers - There are 13 servers - it maintains the records 
+-> top MNC companies and country governments create a non profit organization to manage these root servers 
+
+-> for example: Oxford is the authorized person
+-> every year they will add new words 
+
+-> DNS resolver contacts nearest root servers 
+-> root server scans the domain you asked for 
+-> for example: facebook.com is the domain 
+
+TLD - Top level domains
+-----------------------
+-> Some TLD are, 
+.com, .online, .in, .ord, .edu, .net, .us, .ai, .shop, .org etc 
+-> root server informs DNS resolver to contact .com TLD. 
+-> Root server provides .com TLD address details
+-> DNS resolver contacts .com TLD to provide IP address
+-> TLD checks its system to provide IP address of facebook.com 
+
+
+How you will get Ip addresses
+------------------------------
+
+records :
+---------
+-> You have to update IP address to your domain 
+-> Go to hostinger, login --> take database-server private Ip address 
+-> open daws81s.online -> click on manage -> Add the record --> Type - A --> paste the Ip address into points to --> TTL(Time to leave) - 60 
+
+How to check:
+--------------
+-> nslookup daws81.online 
+
+what happens in the background 
+------------------------------
+-> .siva --> I should contact root servers that I started a TLD called .siva 
+-> godaddy, Hostinger are the brokers which shows some few domains. they are like a middlemans 
+-> Omain registers are middle man. Now I connect all major domain resgisters to show my domain TLD 
+-> Domain registers inform TLD that someone bought facebook.siva domain 
+-> When you book a domain you will get the nameservers 
+-> Domain registers update nameservers for the domain from TLD   
+
+
+frontend-server:
+------------------
+-> sudo su - 
+-> dnf install nginx 
+-> systemctl start nginx 
+
+I want to get the page if I accessed with my n ame 
+what I have to do?
+------------------
+Update the 'A' record in Hostinger. click on edit 
+-> Based on the register domain it may take one hr or 24 hrs 
+-> It updates vert fast in hostinger 
+
+important for interviews 
+---------------------------
+1. what is DNS 
+2. what is nameservers 
+3. what is A record 
+-> 'A' record is responsible to provide IP address to your domain 
+4. how DNS works? 
+
+-> search daws81s.online 
+
+-> changing of name servers can only give update to root servers 
+for example: 
+-> we have given ip addresses to hostinger, if the ip address changes we have to update in hostinger manually everytime 
+
+-> So, to avoid this we have Route 53 service in AWS 
+-> It is a Domain name service
+-> we can book and manage the domains 
+-> We are transforming domains from Route 53 to hostinger 
+-> domain transfer - I don't want hostinger nameservers. I want only AWS nameservers 
+
+process to create domain names in AWS:
+-----------------------------------------
+Route 53 --> hosted zone -> create hosted zone -> enter the domain name (daws81s.online) --> create hosted zone 
+
+why we have to transfer the domain ?
+-------------------------------------
+-> because, I have my servers and infrastructure is everything in Route 53
+-> so we can automatically update 
+-> changed nameservers update in the hostinger 
+-> Go to hostinger -> click on change nameservers and add the nameservers which are created in the Route 53 
+-> save the changes 
+-> over all update process takes 24 hrs 
+-> Domain's authority is with AWS 
+-> Hostinger can only renewal the domain but full authority is with AWS 
+
+
+we have to load the data:
+-------------------------
+-> dnf install mysql -y 
+-> mysql -h <MYSQL-SERVER-IPADDRESS> -uroot -pExpenseApp@1 < /app/schema/backend.sql
+example:
+---------
+mysql -h mysql.daws81s.online -uroot -pExpenseApp@1 < /app/schema/backend.sql
+
+-> It automatically updates 
+-> systemctl daemon-reload
+-> systemctl start backend
+-> systemctl enable backend
+-> netstat -lntp
+
+Now frontend-server
+---------------------
+-> sudo su -
+-> dnf install nginx -y 
+-> systemctl enable nginx
+-> systemctl start nginx
+-> rm -rf /usr/share/nginx/html/*   --> removing default websites 
+-> curl -o /tmp/frontend.zip https://expense-builds.s3.us-east-1.amazonaws.com/expense-frontend-v2.zip
+-> cd /usr/share/nginx/html
+-> unzip /tmp/frontend.zip
+-> vim /etc/nginx/default.d/expense.conf
+->  proxy_http_version 1.1;
+
+location /api/ { proxy_pass http://localhost:8080/; }
+
+location /health {
+  stub_status on;
+  access_log off;
+}
+
+-> create one record in Route 53
+-> record name - backend 
+-> Give the public ip address of backend-server 
+-> TTL(Time to leave)
+
+proxy_http_version 1.1;
+
+location /api/ { proxy_pass http://backend.daws81s.online:8080/; }
+
+location /health {
+  stub_status on;
+  access_log off;
+}
+
+-> If Ip address changed, then go to Route 53 and update the record no need to go to server and update 
+
+
+for example:
+-------------
+hdfcbank.com --> domain 
+netbanking.hdfcbank.com --> subdomain 
+
+open Route 53 -> create a 'A' record with domain name -> give the public Ip address of frontend-server  -> create record 
+
+-> Go to daws81s.online 
+
+To check if the record is updated or not 
+------------------------------------------
+-> nsloopup <record-name>
+example:
+-> nslookup daws81s.online 
+
+To see the logs:
+-----------------
+command is , tail -f /var/log/messages 
+
+-> frontend is approaching backend 
+
+-> we have different types of records and for different purposes 
+
+proxy --> someone is on behalf of you 
+There are two times, they are 
+1. frontend proxy 
+2. reverse proxy 
+
+
+Small assignment:
+-----------------
+1. Book the domain 
+2. Understand what is 'A' record
+3. Install nginx and you should see welcome page with your domain name 
+ 

@@ -1,0 +1,489 @@
+Day-3 session-3(14/08/2024)
+----------------------------
+
+Recap
+------
+1. created keys
+2. imported public key into AWS
+3. Created Security group
+4. created EC2 instance 
+5. connected with EC2 instance
+6. Practiced few commands
+7. Absolute path and Relative path
+8. ports and protocols eg: SSH protocol uses port no 22
+
+<command-name><options><inputs>
+-<single-chat>
+--<word>
+
+Syntax to connect to instance:
+------------------------------
+ssh -i <private-key-path> ec2-user@IP address
+
+-> GitBash is the client to connect to linux server
+-> Open GitBash, enter the file path cd /c/devops/daws-81s
+-> enter the synatx to connect - $ ssh -i demo-key.pem ec2-user@52.205.59.244
+-> Here, Ip address is 52.205.59.244
+
+-> In the previous class we have learned some commands like,
+1. clear
+2. pwd  = present working directory
+3. cd   = change directory
+4. ls -l = list out all the lengthy files with details
+5. ls -ltr = list out all the files with details based on time in reverse order
+6. ls -la  = list out all the files with details and it shows all the hidden files as well
+7. cat  = It shows/ displays the contents and usefull to create a content inside a file
+8. touch  = which is used to create a file 
+9. mkdir  = It is used to create directories
+10. rmdir = It removes the directories
+11. rm    = It removes the files 
+12. mv   = It moves one file to another 
+
+
+1. uname = It tells about the what your system kernel
+2. uname -a = It gives all the information like; OS name, computer name, architecture 
+3. uname --help = to get total system information
+
+How to copy files?
+------------------
+-> In windows, we need which file to copy and where to copy... we use ctrl+c for copy and ctrl+v for paste
+
+-> Here, in linux we use the command
+cp <source-file> <destination-file>
+
+-> suppose we have a root folder, in that we have a file named password in a directory named etc
+-> /etc/passwd
+-> cp /etc/passwd users 
+-> ls -l = -rw-r--r--. 1 ec2-user ec2-user 1436 Aug 15 01:31 users
+-> Here, we are copying /etc/passwd file deatils to users file. we can give same file name or different file name
+-> cp /etc/passwd passwd  = here we are copying with the same file name, the result shows like this 
+-> -rw-r--r--. 1 ec2-user ec2-user 1436 Aug 15 01:35 passwd
+-rw-r--r--. 1 ec2-user ec2-user 1436 Aug 15 01:31 users
+
+how to cut the file?
+--------------------
+-> we are cutting the file from one location and pasting into another location
+-> for example, we have created one directory using mkdir devops. so, here the task is to cut the users file and move it into the devops directory
+-> So, this is called cuttitng the file or reanming the file
+
+How to search a particular word in a file?
+-------------------------------------------
+-> synatx for the command:  grep <word-to-find> <file>
+for example; grep sbin passwd
+-> The word in the file gets highlighted
+-> Linux is case-sensitive 
+-> If we want the insensitive words without following the case-sensitive or not
+-> Here, we use the command = grep -i <word-to-find> <file>
+-> eg: grep -i network passwd
+
+How to download the files?  - imp for interviews
+-------------------------------------------------
+-> Usually, we download the files from the browser and the main input for this is URL
+-> Here, we have curl and wget 
+-> wget = It means web get, which is taking from the web and it downloads the file and displays the file contents 
+-> synatx is, wget <URL> 
+eg: wget https://raw.githubusercontent.com/lakshmimungara/DevOps-with-AWS/main/Day-1%20session-1%20-%20Copy.txt
+-> cat Day-1%20session-1%20-%20Copy.txt = This displays the content of the file
+
+-> curl <URL>  = It is used to show the text/ contents directly on the terminal 
+-> The only difference is, wget is used to download the files, curl is used to show the text directly on the terminal.
+-> Curl is used to run the scripts generally
+
+-> If we want to print anything in Linux we used command called echo
+-> syntax is, echo "<text>"
+eg: echo "Hello world!"
+
+-> Take the file, 
+https://raw.githubusercontent.com/lakshmimungara/DevOps-with-AWS/main/Day-1%20session-1%20-%20Copy.txt
+
+-> How to divide the above URL?
+-------------------------------
+-> Here we have cut command and we use one seperator that is called delimiter
+-> synatx is, cut -d "/" -f1
+-> Here, d is delimiter and / is the symbol as delimiter and f for fragment
+
+eg:
+https
+raw.githubusercontent.com
+lakshmimungara
+DevOps-with-AWS
+main
+Day-1%20session-1%20-%20Copy.txt
+
+
+Piping concept:
+---------------
+-> In linux, we can use the output of one command to the input of another command(please refer the diagram for it in github repo which was created)
+
+->  echo https://raw.githubusercontent.com/lakshmimungara/DevOps-with-AWS/main/Day-1%20session-1%20-%20Copy.txt | cut -d "/" -f1
+-> Here, f1 denotes the first fragment 
+-> This is how cut command do, it is very useful in scripting 
+-> For suppose, if we go to script and downloaded the file. To know, with what name it gets downloaded.  
+
+-> The disadvantage of cut command is, we have to calculate/count the final argument/ final fragment
+-> we cannot do the columnwise
+
+-> we can copy the output of echo into another file(It redirects)
+eg: echo Hello > hello.txt
+-> The result is, cat hello.txt  --> Hello 
+
+awk command:
+------------
+-> This is very powerful command, which is used to cut the columnwise commands also. And used in user management
+-> syntax is, awk -F "/" '{print $1F}'  = this is for first fragment 
+-> awk -F "/" '{print $NF}'
+-> Here, F means fragment 
+eg: 
+echo https://raw.githubusercontent.com/lakshmimungara/DevOps-with-AWS/main/Day-1%20session-1%20-%20Copy.txt | awk -F "/" '{print $NF}'
+
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+games:x:12:100:games:/usr/games:/sbin/nologin
+ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+nobody:x:65534:65534:Kernel Overflow User:/:/sbin/nologin
+dbus:x:81:81:System message bus:/:/sbin/nologin
+systemd-network:x:192:192:systemd Network Management:/:/usr/sbin/nologin
+systemd-oom:x:999:999:systemd Userspace OOM Killer:/:/usr/sbin/nologin
+systemd-resolve:x:193:193:systemd Resolver:/:/usr/sbin/nologin
+sshd:x:74:74:Privilege-separated SSH:/usr/share/empty.sshd:/sbin/nologin
+rpc:x:32:32:Rpcbind Daemon:/var/lib/rpcbind:/sbin/nologin
+libstoragemgmt:x:997:997:daemon account for libstoragemgmt:/:/usr/sbin/nologin
+systemd-coredump:x:996:996:systemd Core Dumper:/:/usr/sbin/nologin
+systemd-timesync:x:995:995:systemd Time Synchronization:/:/usr/sbin/nologin
+chrony:x:994:994:chrony system user:/var/lib/chrony:/sbin/nologin
+ec2-instance-connect:x:993:993::/home/ec2-instance-connect:/sbin/nologin
+rpcuser:x:29:29:RPC Service User:/var/lib/nfs:/sbin/nologin
+tcpdump:x:72:72::/:/sbin/nologin
+ec2-user:x:1000:1000:EC2 Default User:/home/ec2-user:/bin/bash
+
+How to get list of users in linux server -- imp for interviews
+---------------------------------------------------------------
+In a linux server, If I want to get the list of users, what can I do?
+-> we can use awk command
+
+-> The above data is all users information, we can find this user information in etc directory and passwd file --> /etc/passwd
+-> for this we use command, awk -F ":" '{print $1F}' passwd
+-> The result is, 
+root
+bin
+daemon
+adm
+lp
+sync
+shutdown
+halt
+mail
+operator
+games
+ftp
+nobody
+dbus
+systemd-network
+systemd-oom
+systemd-resolve
+sshd
+rpc
+libstoragemgmt
+systemd-coredump
+systemd-timesync
+chrony
+ec2-instance-connect
+rpcuser
+tcpdump
+ec2-user
+
+-> To get the user name and user ID, we use 
+awk -F ":" '{print $1F,$3F}' passwd
+-> which gives the result as follows,
+root 0
+bin 1
+daemon 2
+adm 3
+lp 4
+sync 5
+shutdown 6
+halt 7
+mail 8
+operator 11
+games 12
+ftp 14
+nobody 65534
+dbus 81
+systemd-network 192
+systemd-oom 999
+systemd-resolve 193
+sshd 74
+rpc 32
+libstoragemgmt 997
+systemd-coredump 996
+systemd-timesync 995
+chrony 994
+ec2-instance-connect 993
+rpcuser 29
+tcpdump 72
+ec2-user 1000
+
+-> we have lot of customization in awk command, we can use it for flexibility
+
+Head and Tail commands 
+--------------------------
+-> syntax for head is, head <file-name> --> which gives first 10 lines
+-> syntax for tail is, tail <file-name> --> which gives last 10 lines 
+
+what if I want different lines?
+-------------------------------
+-> head -n 2 <file-name> --> which gives first two lines of the file
+-> tail -n 5 <file-name> --> which gives last 5 lines of the file
+
+What if I want to count the no.of lines in a file?
+--------------------------------------------------
+Suppose, the file contains the following lines.
+
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+games:x:12:100:games:/usr/games:/sbin/nologin
+ftp:x:14:50:FTP User:/var/ftp:/sbin/nologin
+nobody:x:65534:65534:Kernel Overflow User:/:/sbin/nologin
+dbus:x:81:81:System message bus:/:/sbin/nologin
+systemd-network:x:192:192:systemd Network Management:/:/usr/sbin/nologin
+systemd-oom:x:999:999:systemd Userspace OOM Killer:/:/usr/sbin/nologin
+systemd-resolve:x:193:193:systemd Resolver:/:/usr/sbin/nologin
+sshd:x:74:74:Privilege-separated SSH:/usr/share/empty.sshd:/sbin/nologin
+rpc:x:32:32:Rpcbind Daemon:/var/lib/rpcbind:/sbin/nologin
+libstoragemgmt:x:997:997:daemon account for libstoragemgmt:/:/usr/sbin/nologin
+systemd-coredump:x:996:996:systemd Core Dumper:/:/usr/sbin/nologin
+systemd-timesync:x:995:995:systemd Time Synchronization:/:/usr/sbin/nologin
+chrony:x:994:994:chrony system user:/var/lib/chrony:/sbin/nologin
+ec2-instance-connect:x:993:993::/home/ec2-instance-connect:/sbin/nologin
+rpcuser:x:29:29:RPC Service User:/var/lib/nfs:/sbin/nologin
+tcpdump:x:72:72::/:/sbin/nologin
+ec2-user:x:1000:1000:EC2 Default User:/home/ec2-user:/bin/bash
+
+-> we use command, cat <file-name> | wc -l
+eg:
+-> cat passwd | wc -l  --> which gives count 27
+-> Here; passwd is file name, wc is word count and -l is list of it 
+
+How to get the lines in between the file? - imp for interviews
+--------------------------------------------------------------
+-> we use command, cat <file-name> | head -n <count> | tail -n <count>
+-> eg: cat passwd | head -n 10 |tail -n 5
+-> which displays, 
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+
+How to see the running log?
+-----------------------------
+-> we have another usage of tail command, to see the server log
+-> tail -f <log-file>
+eg:  tail -f <server.log>
+-> For suppose, if someone is accesing the server, it gets entries each time 
+-> we have server log files in, /var/log/messages
+
+
+What is Editor?
+---------------
+-> Using cat command we have entered the text, what if I want to edit the text 
+-> The disadvantage of cat command is, we cannot the edit the text/ modify the text
+
+-> For example, if we take the notepad to find the word we use ctrl+F or for replacing ctrl+R
+-> But, in Linux it is only possible by using editors 
+-> we have editor called vim--> visually improved
+
+-> syntax is, vim <file-name>
+-> If we open the file, by default it goes to the Esc mode
+-> If we want to go from Esc mode to colon mode, press : symbol
+-> If we want to go from colon mode to Esc mode, press Esc symbol
+-> If we want to go from Esc mode to Insert mode, press i symbol
+-> If we want to go from Insert mode to Esc mode, press Esc symbol
+
+-> If we want to go to colon mode to insert mode, first press Esc and then press i
+-> If we want to go to insert mode to colon mode, first press i and then press :
+
+Colon/command mode:
+-------------------
+:q --> This is for quit
+:wq --> This is for to write and quit
+:q! --> this is for not to save the changes and exit
+:set nu --> It used to set the line numbers. so, we can find out at what line what's the information
+:set nonu --> If we don't want any numbers to list out
+:/<word-to-find>  --> search from top
+:?<word-to-find>  --> search from bottom
+:noh --> it doesn't highlight anything
+:%d  --> It deletes everything in a file
+:s/which-word/what-you-want  --> It replaces the word only where the cursor is located and only first occurence
+:s/word-to-find --> This is to find the word 
+:<line-number>s/which-word/what-you-want/g --> It replaces the word for all occurence in a particular given line
+:%s/which-word/what-you-want/g  --> It replaces all occurences in a file  
+:1d  --> deletes first line
+
+
+-> In the bottom left it shows the symbols for insert, colon and Esc modes 
+-> for insert mode, --INSERT--
+-> for colon mode, it shows : symbols
+-> for Esc mode, it don't show any symbol just waits 
+
+How to findout any word in a file?
+-----------------------------------
+-> The command for word search from top is, :/<word-to-find>
+-> for example, :/sbin  --> It highlights the word 
+-> The command for word search from bottom is, :?<word-to-find>
+-> eg: :?sbin  --> It highlights the word
+
+What if I don't want to highlight the text?
+--------------------------------------------
+-> The command for this is,  :noh
+
+What if i want to delete the content in a file?
+------------------------------------------------
+-> command for this is, :%d  --> which deletes everything in a file
+
+what if i want to replace a word with another word?
+---------------------------------------------------
+-> command for this is, :s/which-word/what-you-want
+eg:   :s/sbin/SBIN
+-> It replaces the word only where the cursor is located and only first occurence
+
+what if i want to replace a word with another word for all occurences?
+-----------------------------------------------------------
+-> command is, :s/which-word/what-you-want/g
+-> eg:    :s/sbin/SBIN/g
+-> It replaces the word for all occurence
+
+what if i want to replace a word with another word for all occurences in a particular line?
+-----------------------------------------------------------
+-> command is, :<line-number>s/which-word/what-you-want/g
+-> eg:    :3s/sbin/SBIN/g
+-> It replaces the word for all occurence in a particular given line 
+
+what if i want to replace everything/ everyword/ all occurences in a file?
+-----------------------------------------------------------
+-> The command is,  :%s/which-word/what-you-want/g
+eg:   :%s/sbin/SBIN/g
+-> It replaces all occurences in a file 
+
+
+To findout the replaced word or any word:
+-------------------------------------------
+-> command is, :/word-you-want
+eg;   :/SBIN
+
+What if I want to delete a particular line in a file?
+-----------------------------------------------------
+-> command is, :<line-number>d 
+-> here d represents the delete 
+-> eg:  :2d --> which deletes the second line in a file
+
+Esc mode:
+----------
+-> If by mistake you have deleted something, then press symbol 'u' to undo 
+-> u --> undo
+-> shift+g --> which goes from first to bottom 
+-> gg --> which goes from bottom to top
+-> yy --> which copies the particular line where cursor is located 
+-> p --> whatever you have copies by typing yy that is pasted in the next line of it 
+-> 10p --> 10 times paste
+-> dd --> deletes a particular line where cursor is placed 
+
+what if i want to paste the copied line 10 times?
+-------------------------------------------------
+-> After copying, press <count>p
+-> eg:   10p --> which paste the same line 10 times 
+
+what if I want to delete a particular line in a file?
+------------------------------------------------------
+-> press 'dd' by placing cursor at particular line in Esc mode
+
+Insert mode:
+--------------
+-> This is only for insertion
+
+
+
+Permissions  - imp for interviews
+----------------------------------
+-> Any OS consists of read,write and execute modes
+
+How to setup permissions for any file is important?
+----------------------------------------------------
+for example;  -rw-r--r--
+-> It divides into three parts 
+-   ==> It denotes the file 
+rw- ==> who is the owner of the file --> user(u)
+r-- ==> which group he belongs to --> group(g)
+r-- ==> others  --> others(o)
+
+for example:  
+-> Suppose, sivakumar is the owner and he is devops engineer
+-> Ramesh and Suresh are the team members who works with sivakumar and they also devops engineers
+-> Raheem and Robert are development team 
+-> So, rw-- permissions for sivakumar and he has read and write options 
+-> r-- permission for Ramesh and Suresh and they have only read access
+-> r-- permissions for others like Raheem and Robert and they have only read access 
+
+
+** when you don't assign a user to any group, his group is also same as his username 
+
+who can change the permissions?
+--------------------------------
+-> Either owner or root user/admin can change the permissions 
+-> command is, chmod
+-> for adding permissions, we use '+' symbol 
+-> command is, chmod o+w <file-name>  --> here, 'o' is others and 'w' is for write permissions
+eg:  chmod o+w session-3.txt
+-> for removing permissions, we use '-' symbol 
+-> command is,  chmod o-rwx <file-name>   --> here 'o' is others, rwx is for read,write and execute permissions
+eg:   chmod o-rwx session-3.txt
+
+
+what if I want to give all permissions to all members?
+-------------------------------------------------------
+-> command is,  chmod ugo+rwx <file-name>   --> here 'ugo' is for user,group and others and rwx is for read,write and execute permissions
+eg: chmod ugo+rwx session-3.txt
+
+
+** imp for interviews
+---------------------
+R --> 4
+W --> 2
+X --> 1
+-> total add up to 7(which means all permissions)
+-> 777 --> all access to everyone
+-> 750 --> all access to owner, rx for group, 0 for others
+eg: chmod 750 session-3.txt
+
+
+
+
+Q/A session:
+------------
+1. echo Hello > hello.txt 
+   cat hello.txt  --> Hello
+
+2. ssh-keygen --help 
+
+3. VI is already installed in systems and VIM is installed by default.. these are almost same only the change is colors becoz, VI is visually improved version 
+
+4. mv devops devops-1(to move one folder to another folder)
+
+
+

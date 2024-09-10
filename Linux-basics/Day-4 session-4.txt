@@ -1,0 +1,430 @@
+Day-4 Session-4(15/08/2024)
+----------------------------
+
+Recap
+------
+Vim editor
+==========
+1. Esc
+--------
+u --> undo 
+yy --> copy
+dd --> cut
+p --> paste
+shift+g --> takes top to bottom
+gg --> takes from bottom to top
+
+2. colon
+----------
+:q --> quit
+:wq --> write and quit
+:q! --> force quit without changes
+:/ --> search from top
+:? --> search from bottom
+:set nu
+:set nonu
+:noh
+:%d
+:1d --> delete 1st line
+:s/ word-to-find/word-to-replace/g
+:%s/ word-to-find/word-to-replace/g
+
+3. Insert
+
+awk, cut commands
+chmod ugo+rwx file-name
+R => 4
+W => 2
+X => 1
+
+Linux Administration:
+---------------------
+-> for administration, normal access is not at all enough we need root access 
+-> For that, we use the command called 'sudo su'
+-> sudo su --> super user
+-> If you give sudo su - (sudo su hyphen)
+-> This redirects into the /root --> /root is the home folder
+-> we need # symbol for administration whether it is normal user or root user
+
+User management:
+----------------
+-> User is very important  for a system
+-> So, first we have to create User
+-> In Linux, there are multiple users and we can add them to groups as well
+-> So, for creating the user 
+command is, useradd <user-name>
+-> To know who is currently logged-in user 
+command is, id --> which gives info of current user
+
+for example:
+-> Adding an user called ramesh by using the command --> useradd ramesh
+-> after that, enter id --> which displays the information of ramesh(user)
+uid=1001(ramesh) gid=1001(ramesh) groups=1001(ramesh)
+
+-> when you create a user, by default a group will be created on the same username
+
+-> All user information is in /etc/passwd file
+-> whenever you create a user, by default a location is created in /home/ramesh
+ramesh:x:1001:1001::/home/ramesh:/bin/bash
+-> /etc/passwd has user information
+-> /etc/group has root information
+
+-> Here we have created user. But we have to setup password for the user
+-> So, to setup the password. we use,
+command is, passwd <user-name>
+eg: passwd ramesh --> setup the passwd for ramesh
+
+Example,
+-> Create Devops group and add ramesh to it
+-> In a company, if a project is started and new employees added to it. So, we have to create groups for employees like devops, developer, testers etc 
+-> Likewise, A user called ramesh is going to added to the devops team 
+
+-> To create a group/to add a group, we have a simple command 
+command is, groupadd <group-name>
+eg: groupadd devops
+devops:x:1002:
+
+-> For every user have atleast one primary group and multiple secondary groups
+
+Adding user to the group
+-------------------------
+command is, usermod -g devops ramesh --> here usermod is modifying the user, -g is group, devops is name of the group, and ramesh is the user 
+
+Adding the same to the second group
+-------------------------------------
+-> For example, ramesh's primary responsibility is devops and we can also create the same user for differnt group. So, his seconday responsibility is testing 
+-> we are creating secondary group called testing
+eg: groupadd testing
+-> so, I have to give him in secondary group called 'testing'
+
+command is, usermod -aG testing ramesh --> where usermod is modifying the user, -aG is appending(denotes with 'a') to the second group(which denotes with 'G'), testing is the second group, and ramesh the user
+
+->Note:
+In Linux, a user must have tleast one primary group is must and there can be multiple secondary groups
+
+-> Suppose, the user(ramesh) had finished his responsibilities in the secondary group called testing and he don't require any testing group access. So, if in case I have to delete the access for secondary group
+ 
+-> we have a command, gpasswd -d ramesh testing --> Here -d is for deleting purpose, ramesh is the user, and testing is the seondary group 
+
+-> Note:
+While creating a group for any user, the command includes group first and user next. But, for deleting the command includes user first and group next 
+
+Till now, we have 
+1. created user
+2. created group
+3. Added user to the group
+4. Removed user from the group
+
+What if employee leaves the organization?
+-----------------------------------------
+-> First thing, if an employee is leaving the company. we have to remove him from the group
+-> Then delete the user
+
+example:
+-> In a project, if an employee is leaving or else if he resigned the company. First thing the company do is, give him a release from the project --> then he will be on bench period --> after that only we can remove from the company database
+
+-> In Linux, a user must have tleast one primary group is must and there can be multiple secondary groups
+-> So, changing the primary and secondary groups to him
+-> for example, id ramesh  --> gives uid=1001(ramesh) gid=1002(devops) groups=1002(devops)
+-> usermod -g ramesh ramesh
+id ramesh  --> gives uid=1001(ramesh) gid=1001(ramesh) groups=1001(ramesh)
+-> we changed him to the original position by using the command
+command is, 
+usermod -g ramesh ramesh 
+userdel ramesh --> ramesh user and ramesh group both will be deleted 
+-> Now, deleting the group 
+groupdel ramesh 
+id ramesh 
+
+For example, 
+-> we have created a user with user-name suresh and password suresh123
+-> And then informs him about the creation of the user access 
+-> We should give him the public-key IP address 13.60.83.220   --> he should login with user-name and password 
+
+-> Now, open another window of GitBash for login to the user suresh
+-> he don't require the key where he has the password suresh123
+-> So, enter ssh password@IP address
+ssh suresh123@13.60.83.220   --> It still expect the public-key. Because, by default Linux OS will not allow password authentication, it will only allow key-based authentication
+-> If we want to change the key-based authentication to password authentication. We have to change some configurations
+-> which is at /etc/ssh/sshd_config
+command is, vim/etc/ssh/sshd_config
+-> Go to the file and change the password authentication from no to yes 
+-> Since we have done some changes, so, we have to restart the server by using,
+
+systemctl restart sshd
+
+-> Note:
+If we done any changes in the configurations, compulsory we have to restart the server. If we don't restart the server the changes may not effect
+
+-> After restarting the server, now try to login the user suresh 
+-> Now, suresh logged-in and whatever the files created that are under the user suresh
+
+For example:
+-> In any company, If the servers are private login with keys are difficult and managing the keys are also difficult. so, we will simply go with the user-name and password(SSO login)
+-> Mainly keys are used for secured servers and public servers. And for internal servers we use user-name and password.
+ 
+What if I only want keys rather than user-name and password? and How to change the keys?
+--------------------------------------------------------------
+-> To change the keys, first thing is to take the user's public key and should add with SSH 
+-> We will have authorized_key in .ssh/ file.  So, we should add with that authorized_key
+-> The authorized_key consists of public-key
+
+-> User home location is /home/suresh
+-> In linux, every user should have .ssh/ file in there home location to login
+-> So, in that .ssh/ file contains authorized_key file and we have to add public-key 
+
+..ssh/ 
+
+for example;
+-> When an employee joined in a company, Linux admin will ask for suresh public-key. And then suresh generates key-pair and send public-key to the linux admin
+-> suresh keeps the private-key with him
+-> Administrator created the user suresh and the administration goes to the suresh's home folder(cat /home/suresh)
+-> list out the files, we don't find the .ssh/ file. So, create a directory(mkdir .ssh)
+-> change the directory to .ssh/ and create a file called authorized_key 
+-> So, in this file Administrator has to add the suresh public-key
+-> So, to give the public-key to the administrator, suresh has to generate the public-key(ssh-keygen -f suresh)
+-> cat suresh.pub 
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIDipn4ryIEBktlH82MZlAF4+ZvmkQZdIAOhzu+l+jjO 91911@LakshmiMungara
+-> suresh sends this public-key to the administrator via email
+-> And administrator places the public-key in authorized_key(vim authorized_key)
+-> This is all suresh information. so, access should be only for suresh(400 --? read access only to suresh)
+-> even suresh should have write access 
+-r--------. 1 root root 102 Aug 16 03:25 authorized_key
+-> Here, it is in the name of root. But it should be in the name of suresh 
+
+Ownership:
+----------
+command is, chown  --> change ownership
+-> changing the ownership of the .ssh/ file from root to suresh by using command,
+chown -R suresh:suresh .ssh  --> -R represents recursive. It recursively changes all the files from root to suresh user
+-> chmod 600 .ssh/ --> change all file permissions which can access only by the user suresh 
+
+Note:
+User management is very important, becoz if there is any small mistake can cause to hack the servers 
+
+-> At first change the password authentication from yes to no
+and restart the server by using systemctl restart ssh 
+-> Give read and write access --> chmod u+rw authorized_key
+-> Now, try to login the user suresh 
+
+
+
+sir - notes
+------------
+
+User Management and Authentication in Linux:
+============================================
+-> Proper and secure user management is crucial in any system, especially in environments where multiple users nedd access to various resources.
+-> In Linux, managing individual users can be challenging, so we typically create groups and add users to those groups for easier management of premissions and access control
+
+
+Creating a user:
+----------------
+-> when a new person joins a project, you need to create a user account for them. This user account allows them to log in and access the necessary resurces.
+
+Command to create a user:
+--------------------------
+useradd <user-name>
+
+Note: 
+-----
+when a user is created in Linux, a group with the same name as the username is also created by default
+
+To check user information:
+--------------------------
+id <user-name>
+
+To set password:
+-----------------
+passwd <user-name>
+
+
+Creating a group:
+-----------------
+-> To manage users effectively, you should create groups that corresponds to different teams or roles, such as a DevOps team.
+
+command to create a group:
+-------------------------
+groupadd <group-name>
+
+Adding a user to a group:
+-------------------------
+-> Once you have a user and a group, you can add the user to the appropriate group. In Linux, there are two types of groups:
+
+1. primary group: 
+-------------------
+-> This is the default group associated with a user. Files created by the user will have this group as the group owner.
+
+2. Secondary group:
+--------------------
+-> These are additional groups to which a user can belong, granting them additional permissions.
+
+Add a user to a primary group:
+------------------------------
+usermod -g <group-name> <user-name>
+
+Add a user to a Secondary group:
+---------------------------------
+usermod -aG <group-name> <user-name>
+
+
+Password-based Authentication:
+==============================
+-> By default, Linux might disable password-based authentication. 
+-> To enable it, you need to modify the SSH configuration file.
+
+
+Edit SSH Configuration:
+------------------------
+-> SSH configuration is available in /etc/ssh/sshd_config
+vim /etc/ssh/sshd_config
+
+Ensure the following line is set to 'yes':
+------------------------------------------
+PasswordAuthentication yes
+
+Restart SSH service:
+---------------------
+systemctl restart sshd
+
+Key-Based Authentication:
+==========================
+-> For enhanced security, it's recommended to use SSH key-based authentication.
+-> This method requires users to have an SSH key-pair for accessing the system 
+
+Steps for Key-Based Authentication:
+------------------------------------
+1. User generate a key-pair(on client machine)
+
+->  ssh-keygen -f <file-name>
+
+2. User sends Public key to Admin
+->  The user sends their public key to the system administrator 
+
+3. Admin Creates the user
+
+-> adduser <user-name>
+
+4. Create a .ssh directory 
+
+=> Automatically, a new home directory will be created for the user
+/home/<user-name>
+
+=> Admin should create a .ssh directory within the user's home directory
+mkdir /home/<user-name>/.ssh
+chmod 700 /home/<user-name>/.ssh
+
+5. Create authorized_keys File
+
+=> Create the authorized_keys file inside the .ssh directory 
+touch /home/<user-name>/.ssh/authorized_keys
+chmod 600 /home/<user-name>/.ssh/authorized_keys
+
+=> Open the file and paste the public key inside it.
+
+6. Update SSH Configuration 
+=> Ensure the following lines are present in /etc/ssh/sshd_config
+PasswordAuthentication no
+PubkeyAuthentication yes 
+
+7. Restart SSH service 
+
+systemctl restart sshd 
+
+8. Inform user to Login
+-> Notify the user that they can now log in to the server using their private key
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
