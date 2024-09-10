@@ -1,0 +1,269 @@
+Day-15 session-15(30/08/2024)
+------------------------------
+Recap:
+------
+shell scripting is completed 
+
+-> Every system is not automated. At least some part we have legacy in the systems 
+
+Legacy system(old systems):
+---------------------------
+
+for eg:
+------
+-> core banking are in legacy technologies and they will follow build and release and manual 
+-> It is tuff to maintain the legacy system(Old technology) 
+
+Do you have any achievement in your team? - imp for interviews 
+------------------------------------------
+-> As part of our team, we are managing our legacy systems as well
+-> Legacy is highly secured and we cannot have access that easily 
+-> Logs and disk are too much in legacy systems, and we are not able to access the systems becoz networking team are not giving access to us. In these days I had written one script i.e.,
+1. Monitoring CPU and memory and sending alert emails 
+2. Backup scripts and scheduled them 
+
+-> everyone can manage advanced system but maintaining legacy systems are tuff challenges
+
+What is Configuration management:
+----------------------------------
+-> If we create a server,then it is plain, without anything installed 
+-> we are installing application runtime and few packages  
+-> creating users and folders
+-> downloading code  
+-> installing dependencies 
+-> creating systemctl services 
+-> copying configuration files 
+
+-> configuration = one plain server is ready to make the application to serve 
+
+plain server moves to --> ready to serve the application/end user --> manual --> shell script 
+
+-> At first, we have done the configuration all manually 
+-> Becoz of this we will get human errors and we moved to shell scripting 
+
+Disdavatages of shell script:
+----------------------------
+1. By default shell script is not idempotent and write custom code to make it idempotent
+2. error handling is not perfect --> we have to write code to check the errors 
+3. shell script is homogenenous(It means, when we write a code by using redhat and it is not usefull/not work for ubuntu) -> only works specific distribution 
+4. Not scalable, when it has too many servers
+-> suppose we have to run the script in 1000 of servers, we have to login for each server and run the script 
+5. Synatx is not easy to understand 
+
+-> But still shell script is very powerfull, when it has minimum number of servers 
+-> shell script is native scripting and it cannot replace with any other script but when it comes to too many servers it doesn't perform well
+-> we can convert scripts into command and we can make by default AMI's in server
+-> when the traffic increases, then we cannot make it with shell scripting so, we are moving to ansible
+
+
+-> So, to manitain this configuration, we got too many tools 
+-> Configuration management tools --> puppet, chef, rundeck, ansible, etc 
+-> where ansible is more popular 
+
+-> we have two architechtures in this, they are  --> push and pull 
+
+Push vs Pull:
+------------
+-> we can decide based on our preference 
+for example; 
+---------------
+-> A courier is from delhi to hyd 
+-> ultimately it comes to DTDC --> This is comes under Pull
+1. we go to HYD DTDC daily and check for courier 
+2. we sit in home, whenever courier comes to HYD DTDC, they deliver to us  --> This is comes under Push 
+
+Disadvantages of Pull:
+----------------------
+1. Daily we have to check and enquire about the courier and causing more traffic on roads --> when it comes to IT more traffic in internet 
+2. Unnecessary resources, waste of time, and fuel etc --> bandwidth, power, completion of data, device resources, etc. 
+3. cost may increases 
+
+Push:
+----
+-> we don't any of these disadvantages 
+-> save everything 
+
+
+Introduction to Ansible:
+--------------------------
+
+-> Ansible follows push-based architechture. so, that is why it is more popular 
+-> Remaining puppet, chef, and rundeck follows pull-based architechture 
+-> It is so powerfull
+-> we will install ansible and we will do all these configiration with the ansible 
+-> we have to make everything as a story😂
+-> Recently we migrated normal servers to ansible managed servers 
+-> Ansible is purchased by Red Hat 
+
+
+1. create an instance in AWS called ansible-server
+2. Open superPutty and connect to the server 
+3. install ansible by using command, sudo dnf install ansible -y 
+
+
+-> Open draw.io website 
+-> In an Ansible architechture, we have one server and remaining all nodes 
+-> Ansible connects to the nodes and pushes the configuration 
+-> we can connect to the many servers 
+-> Main advantage is, it uses SSH to connect to the nodes 
+-> In ansible, total background is all linux 
+
+
+54.210.150.96 --> we have to create one temp directory and add file in it --> /tmp/hello.txt
+1. login to the serve 
+2.  move to /tmp directory 
+3. create a file hello.txt 
+4. execute and exit 
+
+open gitbash and enter the command
+-----------------------------------
+ssh ec2-user@<IP address> -C "echo 'Hello' > /tmp/hello.txt" --> it logged into this in background and run the files --> This is called remote login
+-> Remote login is, without any manual entries  
+
+-> Ansible is also same it performs remote login, execute the command which we have given and exit 
+-> Background is all about linux and shell only, but we can do ansible easily 
+-> And it is based on SSH protocol
+-> becoz of SSH protocol, it is simple for ansible to perform 
+
+-> In pull based Configuration management -> we will schedule a nodes, for every 30 mins, it connects to the server and checks for any new configuration
+-> It has some agents and connects to the nodes 
+-> push can be usefull for 90%. becoz of this it is powerfull but remaining 10% also powerfull by using pull
+-> In push based, we have to install 
+-> Earlier ansible was only on push based, but recently it implemented pull based also.
+-> Whereever the ansible is installed that is called ansible server and whatever connects to the ansible server is called nodes/ boxes. 
+
+connect to the server in superputty and install ansible by using command --> sudo dnf install ansible -y 
+
+-> In pull-based, we have to install agents seperately. So, it is an extra installation 
+-> But, we don't need any extra installations for push-based
+-> Ansible server connects with ansiblenode through SSH protocol  
+
+
+Now, go to AWS and create a ansible node 
+-> name it as ansible-node 
+-> Take the private IP address of ansible-node and connect internally in the ansible-server 
+
+Inventory: - products 
+-----------------------
+-> It is denoted by -i 
+-> Inventory is everything in ansible
+-> when it comes to ansible, inventory is all about list of servers ansible is managing 
+-> first we have to check whether the connection is established from ansible node to ansible server 
+-> First eligibility in ansible is, 
+1. Are your ansible server able to reach node --> firewall configuration
+
+
+syntax for connecting to the ansible server:
+---------------------------------------------
+ansible -i <private IP address of ansible-node>, all -e ansible_user=ec2-user -e ansible_passwdd=DevOps321 -m ping --> where -i is inventory, -e is enabling, -m is module 
+
+Requirement -> install nginx on node from ansible 
+dnf install nginx -y 
+-> Here, in the above command, dnf is a module and nginx is package 
+
+-> ansible simplifies the terminology
+dnf   install   nginx -y 
+cmd   options    inputs 
+-> In linux, we call it as command but in ansible we call it as module 
+-> for every command has Inputs and outputs 
+
+ansible -i <IP address>, all -e ansible_user=ec2-user -e ansible_passwdd=DevOps321 -m dnf -a "name=nginx state=installed"
+
+-> -a represents the arguement
+-> The above doesn't have any root access 
+
+ansible -i <IP address>, all -e ansible_user=ec2-user -e ansible_passwdd=DevOps321 -b -m dnf -a "name=nginx state=installed"
+
+
+ "changed": true,
+    "msg": "",
+    "rc": 0,
+    "results": [
+        "Installed: nginx-core-1:1.20.1-14.el9_2.1.x86_64",
+        "Installed: redhat-logos-httpd-90.4-2.el9.noarch",
+        "Installed: nginx-1:1.20.1-14.el9_2.1.x86_64",
+        "Installed: nginx-filesystem-1:1.20.1-14.el9_2.1.noarch"
+		
+
+-> Here, changed is true which says status is moved forward  and false indicates status is not changed 
+-> rc is 0 where exit status is success 
+-> results says what all got installed 
+
+ansible -i <IP address>, all -e ansible_user=ec2-user -e ansible_passwdd=DevOps321 -b -m service -a "name=nginx state=started"
+
+
+-> Ansible is pushing the configuration
+-> whatever we have given, ansible pushes those to the configuration
+
+-> SO, those are called adhoc commands
+
+what are Ansible's adhoc commands?
+-----------------------------------
+-> It is the command issued from ansible server targeting node manually, basically on some emergency/adhoc purpose
+-> adhoc means immediate 
+-> Run the commands one by one in a sequence manually --> keep all those commands in a file with some syntax and run it at a time==shell scripting(it takes two mins) -->
+
+Run the commands one by one in a sequence --> we are using office laptop and there is a network that is India to US 
+
+keep all those commands in a file with some syntax and run it at a time==shell scrpiting(it takes two mins) --> runs inside US server
+
+Ansible's playbook:
+--------------------
+-> Playbook is a list of modules ansible server runs against its node
+-> ansible's playbook runs in YAML(Yet another markup language)
+
+for eg:
+--------
+200 years back--> take a paper 
+1. Account id 
+2. date
+3. amount 
+4. branch 
+5. Account number and name 
+6. denomination 
+
+-> After evolution of computers, format may change 
+-> solution for this is, banks made some templates --> cash receipt, cash withdrawl, gold etc 
+field name --> field value 
+key name --> key value 
+-> These all are templates in banks and are in real life 
+
+-> But programmings handled by DTO
+-> DTO == data transfer objects 
+-> The data which we giving in any website reached to them by using DTO 
+-> And we have xml, json, and yaml in DTO  
+
+XML vs JSON vs YAML 
+-------------------
+XML structure:
+---------------
+<Signup>
+	<Name>lakshmi</Name>
+	<email>kimtaehyung@gmail.com</email>
+</Signup>
+
+JSON structure:
+----------------
+{
+	"Name": "lakshmi"
+	"email": "kimtaehyung@gmail.com"
+}
+
+-> after XML, JSON became popular but still some companies are using XML 
+
+
+YAML structure:
+----------------
+Name: lakshmi
+email: kimtaehyung@gmail.com 
+
+
+milestone:2
+------------
+The same project you automated through shell scripting 
+
+1. advantages 
+2. challenges 
+3. errors 
+4. final take 
+

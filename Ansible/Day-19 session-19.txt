@@ -1,0 +1,66 @@
+Day-19 session-19(05/09/2024)
+------------------------------
+
+Recap:
+------
+functions == filters 
+command vs shell --> command is more secure 
+-> command module is more secure than the shell, because it is not getting the actual shell environment 
+-> shell module is less secure because command will be executed inside the linux server using all the shell capabilities like pipes, redirectors and variables 
+-> when you are using simple commands go for command module and for complex commands, pipes, redirectors go for shell module  
+we cannot use custom functions in ansible . if we wanted to write the custom functions, we need python code
+-> very rarely we use this custom functions 
+
+
+Now in today's class:
+---------------------
+-> Ansible is capable of connecting to external systems not only inside the server. But, actually ansible was created to manager inside the server not for external systems. But due to python code which is running in the background, ansible can connect to external servers as well 
+
+
+-> we already have mysql module in ansible 
+-> ansible.builtin --> which comes from ansibel 
+-> community.mysql --> which made by community 
+
+-> If we want to connect to any system 
+1. first, we have to provide host, username and password 
+2. system fails, if we does not setup 
+3. Now create root password 
+4. If pass skip it 
+
+
+-> by user module, ansible handles and checks the idempotentance
+-> user module handles and take cares of the underline distribution commands in the background 
+
+
+some modules:
+-------------
+package 
+get_url
+user
+command 
+mysql 
+file 
+copy 
+unarchive
+pip 
+
+
+Ansible roles:
+--------------
+-> It is just like DRY --> don't repeat youself 
+-> Roles --> we will keep repeated code here and call whenever required and a proper structure of ansible playbook 
+
+-> whatever we wrote in yaml files we will keep them in a proper structure format and it is called as ansible roles 
+-> we follow some directory struture in roles   
+
+
+
+
+
+
+
+
+
+
+
+

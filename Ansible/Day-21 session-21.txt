@@ -1,0 +1,113 @@
+Day-21 session-21(09/09/2024)
+----------------------------
+Recap:
+------
+-> Ansible concepts
+-> expense project 
+-> Roles 
+
+
+Now today's class
+------------------
+-> It is not safe to do passwords in console 
+-> we have a feature called ansible vaults 
+Ansible vaults 
+-----------------
+-> It is a secured storage 
+-> Ansible vault provides a way to encrypt and manage sensitive data such as passwords 
+-> Data is encrypted 
+command is, ansible-vault create credentials.yaml 
+-> credentials.yaml file should be keep it in server somewhere 
+To create a vault password command is, ansible-vault create credentials.yaml
+	To view the content, ansible-vault view credentials.yaml
+	To edit the content, ansible-vault edit credentials.yaml
+	Vault password is – Admin123    This can be our wish 
+
+sudo chmod +r /var/expense/credentials_mysql.yaml 
+-> If we are giving read access also, everyone have vault password 
+-> whoever is administrating the vault password, they only have the password 
+
+-> In ansible configuration, if any of the variables it didn't decrypt then it asks for vault password 
+
+-> we have to give password for the file 
+-> we can also edit the encrypted file 
+-> This is outdated 
+
+-> In AWS environment, we use SSM parameter storage. This is very powerful 
+
+What are you using? -- imp for interviews
+------------------------------------------
+-> Before we used to use ansible-vault, but recently we disabled it and we are in AWS cloud, so we are started to use SSM parameter 
+
+-> another way of answering, ansible-vault is outdated so we are using SSM paramter 
+
+What are Ansible tags?
+----------------------
+Q) I have 100 tasks in my playbooks and how to run 10 tasks?
+-> This is possible with the ansible tags 
+-> Tags are given information
+-> tags are powerful 
+for example; person --> name tag, DOB tag, address tag etc 
+
+-> If you have a large playbook, it may be useful to run only specific parts of it instead of running the entire playbooks --> you can do this with Ansible tags 
+
+-> Suppose, if the version gets updated do we have to run everything again --> 
+
+Ansible dynamic inventory: - imp for interviews 
+-----------------------------------------------
+inventory.ini --> static file 
+
+-> Dynamic intentory is used in cloud environment to fetch the instances at run time 
+-> we can say that it is Inscalabale environment
+ 
+-> servers increases when traffic increases in cloud environment --> This is auto scaling 
+-> Suppose, servers running, if we want run some tasks, and we cannot go and take manually. Then dynamic invertory gets used here
+-> ansible should query the cloud and get the IP address dynamically at that time 
+
+Ansible also searches same like human
+first thing we need is, 
+1. Authenticate 
+2. region 
+3. name 
+4. running instances 
+5. private IP 
+
+-> Suppose, we are creating 30 servers at a time.
+-> we cannot go and take the ip addresses for each and every server. Becoz, IP address may get change at any time 
+-> They can create extra in scalable environment and automatically some can delete when traffic gets increased 
+-> By using dynamic inventory, if we want to conect with the outside environment we have use some plugins 
+
+.aws_ec2.yaml -> file name should be same like this 
+
+To search for limit of services:
+-----------------------------------
+search quotas -> AWS services 
+
+
+How can you connect to multiple servers by using dynamic inventory?
+----------------------------------------
+ansible --> 1000 t3.xlarge 
+forks = 5(by default) --> ansible connects to 5 servers at a time and complete the task--> task level 
+
+-> Ansible runs each task on all hosts affected by a play before starting the next task on any host, using 5 forks 
+-> fork is used to connect parallel 
+-> If you have the processing power available and want to use more forks, you cn set the number in ansible.cfg 
+
+serial = 3 --> runs playbook first 3 servers, again it will connect to next 3 servers --> play level 
+
+-> It the playbook runs for multiple times 
+
+
+-> Ansible structure is declarative and unfit for state management 
+-> Ansible is only fit for configuration management, CM means doing something in servers 
+-> You can give any server, ansible connects to that server and it creates the required configuration 
+-> But when it comes to cloud infrastructure ansible is poor 
+-> It will not do what we say, it will do something else -> for this purpose terraform is  useful
+
+
+
+
+tomorrow == log_path 
+
+terraform reponsibility is to create the ec2 instances (infrastructure)
+Ansible responsibility is to connect with the instances and configure them 

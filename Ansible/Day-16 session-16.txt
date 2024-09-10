@@ -1,0 +1,128 @@
+Day-16 session-16(02/09/2024)
+-----------------------------
+Recap:
+------
+-> we completed shell-scripting concepts like,
+variables
+loops
+conditions
+functions
+datatypes 
+-> we practiced how to write shell scripting 
+-> and some variables, backup script and some use cases
+-> we completed our expense project by using shell script 
+-> configuration management - plain server without anything installed 
+
+-> some disadvantges in shell scripting:
+---------------------------------------
+1. it is not an idempotent 
+2. error handling 
+3. homogenous 
+4. not scalable 
+5. syntax is not easy to understand 
+
+To over come these disadvantges, some configuration management tools come into picture  like puppet, chef, rundeck, ansible etc 
+-> In these CM tools, ansibke beacame popular 
+-> ansible is a push based architecture 
+-> we just distinguished difference between pull vs push 
+-> we have discussed inventory 
+-> and also we have discussed about adhoc commands, it means for emergency purposes and for some simple tasks we can use adhoc commands
+-. difference between xml, json and yaml 
+
+
+Now, in today's class
+----------------------
+-> Where storing all the linux commands in a file is called shell script 
+-> Likewise, in ansible we store all the modules at once place called ansible playbook 
+-> search for ansible modules in the google. It can give you the all modules with there syntaxes 
+-> Ansible can connect to any system externally and can perform the tasks given by us.
+-> Here, we call ansible modules, every module syntax we can check in the documentation
+
+-> module name is mandatory and remaining are optional and you can supply agrs to module. they may be optional or mandatory
+-> Now, we have to creaet one repository called ansible, copy the HTTPS link. clone it in the gitbash 
+-> we have to write our first playbook
+
+ping module
+- name: ping the server 
+  hosts:     #which hosts your ansible wants to connect 
+  tasks:     #list of tasks/modules/collections
+  - name: ping the server 
+    ansible.builtin.ping:
+	
+-> we haev to create two servers to conect to the ansible -> one is ansible server and other one is ansible node 
+
+what is ansible's playbook?
+---------------------------
+-> It is a list of plays which contains modules that can do specific tasks 
+
+Inventory:  - a list of products
+-------------
+-> one or more servers - when load is increased on any server then no.of servers may increase
+
+-> for example, take one inventory file 
+inventory.ini -> a file contains list of servers ansible is connecting to...
+192.168.1.1
+192.168.1.2
+-> Here, grouping is important 
+-> we have to group all the backend servers in one group, and frontend in one group and database servers in one group 
+
+ansible-playbook -i inventory.ini -e ansible_user=ec2-user -e ansible_password=DevOps321 01-ping.yaml
+
+While giving ansible.builtin.package: --> it understands the server and install the packages related to it. So, that it is heterogenous
+
+For suppose, we have 10 servers in backend, In a project if there are 10 servers, we cannot keep them into different distributions becoz, it is hard to manage. Only we keep in one distribution
+
+imp for interviews:
+--------------------
+- name: nginx install and run 
+  hosts: web 
+  become: yes  # it takes sudo access
+  tasks:
+   - name: install nginx 
+     ansible.builtin.package:  # ansible is heterogenous module that can work for all distros
+      name: nginx 
+      state: present
+
+   - name: run nginx 
+     ansible.builtin.service:  # service module is used to manage services
+      name: nginx
+      state: started
+      enabled: yes
+	  
+--> We have installed nginx and run and enabled 
+
+-> In ansible also we have, 
+variables
+loops
+functions
+conditions
+datatypes
+
+variable declaration:
+---------------------
+course: "devOps with AWS"
+duration: "120HRS"
+Name: "maha lakshmi"
+
+-> we use {{}} symbol to declare a variable in ansible 
+
+-> Our main focus is not to change anything in source files. why? becoz, you may accidentally change other 
+
+-> Command to get the input from the promt --> vars_promt
+
+-> we can also push the variables in the inventory.ini 
+
+[web:vars]
+COURSE="Ansible"
+DURATION="10hrs"
+LEARNER="mahalakshmi"
+
+
+Different types of variables:
+----------------------------
+1. play level variables
+2. Task level variables
+3. variables from files 
+4. variables from prompt
+5. variables from inventory 
+6. variables from command line/args 

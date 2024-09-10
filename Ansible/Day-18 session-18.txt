@@ -1,0 +1,110 @@
+Day-18 session-18(04/09/2024)
+------------------------------
+Variables and different types 
+conditions 
+loops --> keyword item
+datatypes 
+
+Functions == filters 
+-> Ansible is developed by using python 
+python --> ansible is giving opportunity to write custom functions, if we want we have to write python code and get that functionality 
+-> 99% we didn't get any opportunity to create a custom functions. Ansible gives the default functions. so we use that one 
+-> Coming to ansible we call functions as filters 
+So, what is filter?
+-> filter is like manipulation 
+-> It is common to have a undefined variable and we use that variables
+-> ansible considers the default values if the variable is not defined 
+-> we use keyword called default 
+syntax:  {{some_varibale | default(value)}}
+-. By deafult, every varibale in ansible is a mandatory 
+-> unique is the keyword --> we will get the unique values from the list of repeated numbers 
+-> upper and lower are the key words to convert a string from lower to upper and visversa 
+-> min and max values 
+
+Convert dictionary to list:
+---------------------------
+"{{ course | dict2items}}"     # converting dictionary to list -> dict2items is a function 
+
+course: 
+	name: "DevOps with AWS"
+	duration: 120
+	leraner: "mahalakshmi"
+	
+result:
+-------
+	
+"msg": [
+        {
+            "key": "name",
+            "value": "DevOps with AWS"
+        },
+        {
+            "key": "duration",
+            "value": 120
+        },
+        {
+            "key": "leraner",
+            "value": "mahalakshmi"
+        }
+    ]
+	
+Convert list to dictionary:
+-----------------------------
+course:
+       - {"key": "name","value": "DevOps with AWS"}
+       - {"key": "duration","value": 120}
+       - {"key": "leraner","value": "mahalakshmi"}
+	   
+msg: "{{ course | items2dict }}"   # converting list to dictionary where itesm2dict is a function keyword
+
+-> To check if the IP address is valid or not 
+command is, msg: "{{ myip | ansible.utils.ipv4 }}" 
+-> built tool for python is pip 
+-> we have to install builtin packages for python which runs in background 
+command is, pip3.9 install netaddr --> where netaddr is a dependency
+
+What if module is not available and what we use?
+------------------------------------------------
+-> Not everything 100% perfect machine can do. so some we don in manually by using.... 
+ansible.builtin.command:
+ansible.builtin.shell
+
+Command vs shell -- imp for interwies 
+------------------------------------
+command --> it is used to execute simple commands, it will not get the shell environment
+-> we are telling to command that from outside you connect to the server and execute it 
+shell --> complex like pipes, redirections, etc. It gets the shell environment 
+-> But for shell, it logins to the anisble and executes the command 
+
+-> Compare to shell, command is more secure --> command cannot access and shell goes inside the server. so, command is more secure 
+-> so, prefer use command if works 
+
+
+Expense project using ansible:
+--------------------------------
+we need 3 servers, 3 records. they are 
+mysql.daws81s.fun --> private IP 
+backend.daws81s.fun --> private Ip 
+frontend.daws81s.fun --> private IP -> easy to connect with the ansible
+daws81s.fun --> public IP 
+
+-> we can create these instances by uisng ansible 
+-> ansible is not only configuration management tool, it can connect to any system if module is available 
+-> ansible has to connect with the AWS, we need python library 
+
+AWS system interacts with console, command line, API and with SDK(software development kit)
+-> console is human based and remaining all are programs which are based on access key and secret key 
+-> To connect to the AWS, obviuosly we need authentication. so we need to access with the acces key and secret key 
+
+-> So, now open AWS --> go to IAM --> Users --> click on create user -> give the user name as 'ansible' --> next Attach policies directly -> give the administratoraccess -> next create user 
+
+-> This is non human. so it doesn't have any username and password 
+
+-> open the user 'ansible' in IAM --> go to security credentials --> create access keys -> click on commanline interface -> check the box below and click on next -> create access key and secret key 
+
+-> It is visible only one time...If we want give this we have to configue first by using -> aws configure
+
+
+-> ec2_instances.results --> list 
+we have to refer items from the instances --> item.instances 
+ 

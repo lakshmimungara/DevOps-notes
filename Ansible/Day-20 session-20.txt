@@ -1,0 +1,125 @@
+Day-20 session-20(06/09/2024)
+------------------------------
+Recap:
+------
+ansible topics 
+variables
+loops
+conditions
+expense project using ansible server 
+
+now in today's class
+---------------------
+Ansible roles:
+--------------
+A proper structure of playbook that includes variables, files, templates, other dependencies, handlers etc. we can resue roles 
+
+1. we reuse the code 
+2. we can keep it in a proper structure 
+
+Role directory structure:
+---------------------------
+tasks/ --> you can keep all your tasks here
+handlers/ --> when there is a change in particular task, you can notify other task 
+templates/ --> you can keep all your files with variables here
+files/ --> files without variables here
+vars/ --> you can keep all the variables here 
+defaults/ --> low priority variables 
+meta/ --> other dependencies
+Library/ --> you can keep your custom modules using python here 
+module_utils/    # roles can also include custom module_utils/
+lookup_plugins/ --> all plugins here 
+
+-> open AWS-> create one instance name it as ansible-server 
+-> connect the server and install ansible 
+-> run the create ec2-r53 file which creats the mysql, backend, and frontend instances and also records related to it 
+-> check the aws configue  --> access key and secret key 
+-> run the command -> ansible-playbook -i inventory.ini 21-create-ec2-r53 
+
+
+-> Now create one new repo as expense-ansible-roles 
+-> clone the HTTPS url in the gitbash 
+-> create a file mysql.yaml under the expense-ansible-roles in the vs code 
+-> create a folder roles -> under roles another folder mysql --> under mysql another folder called tasks --> under tasks create a file called main.yaml 
+-> keep all the tasks related content in the main.yaml under the tasks folder 
+
+
+ansible.cfg
+-------------
+generally all configurations are in /etc 
+-> Generally, whatever we install, that has ceratin configurations tools 
+-> for example. if you develop one tool, we have to configurations to the users --> users go inside and configure there requirement 
+
+ansible location :
+-----------------
+/etc/ansible/ansible.cfg
+
+It will give four options 
+
+1. ANSIBLE_CONFIG (environment variables if set)
+2. ansible.cfg(in the current working directory)
+3. ~/.ansible.cfg (in the home directory)
+4. /etc/ansible/ansible.cfg 
+
+-> if we didn't set the path, ansible directly takes from etc folder 
+
+-> if we unset the file, nothing will show --> unset ANSIBLE_CONFIG
+
+-> create a backend folder under roles -> tasks under backend folder -> vars under backend folder -> templates under backend folder 
+-> main.yaml under tasks and add relevant tasks in it 
+-> main.yaml under vars and add related variables 
+-> backend.service.j2 under templates folder 
+
+jinja2 ---> templating language -> it is just like a scripting language 
+
+-> create a frontend folder under roles -> tasks under frontend folder -> vars under frontend folder -> templates under frontend folder 
+-> main.yaml under tasks and add relevant tasks in it 
+-> main.yaml under vars and add related variables 
+-> expense.conf.j2 under templates folder 
+
+
+handlers/Notifiers:  --> imp for interviews 
+--------------------
+-> when a task is changed, you want to notify another task
+for example, restart 
+-> when a task is not changed, we no need to restart anything and no need to notify also 
+
+-> notify is keyword 
+-> suppose if you have changed the configuration file then you have to restart it and notify through the  handlers 
+
+-> for example: You may want to restart a service if a tasks updates the configuration of that service,but not if the configuration is unchanged 
+
+3 modules --> nginx, nodejs, mysql 
+
+12 modules --> 4 nodejs, 2 java, 2 python 
+
+1. remove the existing /app directory 
+2. create again 
+3. download code 
+4. extract code 
+
+In nodejs --> /app
+In nginx --> /usr/share/nginx/html
+
+backend directory=/app
+frontend directory=/usr/share/nginx/html
+
+-> If we want to achieve the idempotency, we have to remove the existing files. In a safe side we delete the existing files and download new files 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
