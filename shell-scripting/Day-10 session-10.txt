@@ -1,0 +1,187 @@
+Day-10 session-10(23/08/2024)
+-----------------------------
+-> manually, we have to run the command one by one
+manual disadvantages:
+--------------------
+1. human errors 
+2. time taking process 
+
+-> Because of that shell scripting came into existance 
+-> For suppose, if we store these shell scripting in company latops or any other source 
+Disadvantages:
+------------------
+1. security issues
+2. collobration issue
+3. we will keep this in GitHub 
+
+what is Git?
+------------
+-> It is a decentralised source code management 
+-> It is a single source of truth 
+
+GitOps --> git is the single source of truth 
+-> If it is development or operations or devops, everything is done through Git 
+
+-> It is a centralized Vs decentralised architecture 
+-> previuosly we have SVN(Sub version control)
+
+
+centralized capital vs decentralised capitals 
+---------------------------------------------
+for example:
+------------
+chennai, bangalore, kolkata, mumbai, Delhi --> these are decentralized capitals
+-> If Delhi has all the imports and exports and exchanges etc --> then it is called centralized capital 
+-> If all the things are at one place then it is called as centralized capital 
+
+Disadvantages of centralized capital:
+-------------------------------------
+1. single point of failure  --> if natural disasters occurs in Delhi then we may lost all the data and the entire country is at stake 
+2. single point of development 
+3. Accessbility 
+4. Development and economy 
+5. Tiots(fightings)
+6. Social capitals and economically decreases 
+
+Advantages of decentralised capital:
+-------------------------------------
+1. No single point of failure
+2. Development is distributed 
+3. easy accessibility 
+4. social and economical balance 
+
+-> Git follows distributed/decentralised architecture. Same kind of setup exits in remote server is available inall the computers connected to that repo. So at any point of single computer is enough to restrore everything. This is called distributed/decentralised. This is acheived localrepo setup 
+
+-> Repository --> which stores something 
+-> Git --> it is one of the concept invented Linus Torvalds, inventor of Linux
+-> so many members are implemented the Git concept. GitHub, BitBucket, GitLab, CodeCOmmit, Azure repos etc 
+
+clone  --> download the repo 
+command is, git clone <URL>
+-> GitBash is the client 
+-> difference between normal folder Vs git repo --> .git(hidden)
+
+-> we need one IDE --> Inetgrated development environment 
+-> Because, it gets colors, syntax highlights etc., 
+
+1. create a repository in GitHub 
+2. make it public 
+3. click on HTTPs 
+4. cd /devops/daws-81s/repos/
+5. git clone <URL>
+6. cd git-practice/  --> This is the name which was created earlier 
+7. ls -la 
+
+
+1. Open VS code 
+2. search for new file --> c/devops/daws-81s/repos/
+
+workspace --> where you develop scripts 
+-> We should push into local repos 
+1. staging/index area 
+task-1, task-2 are in development 
+task-1 should be released/pushed to git. whatever the changes  
+
+make sure you are in git repo 
+-> ls -l 
+-> git status 
+-> stage the files or add the files 
+-> command is, 
+git add <file-name>
+
+-> To commit the, command is --> git commit -m "I created a new Hello world"
+-> It asks for username and your name 
+-> commands are, git config --global user.email "lakshmimungara2997@gmail.com"
+-> git config --global user.name "Maha Lakshmi"
+
+To push into the Remote server 
+--------------------------------
+-> command is, git push origin main 
+main --> it is ut default branch 
+-> It asks for user login either sign with your browser or else with Token
+ 
+How to get this token?
+----------------------
+Open GitHub -> Go to settings -> Go to developer settings -> and open personal access tokens -> select Token(classic)-> click on Generate new token(classic) -> give the name and set no expire date and give permissions 
+
+Create a Linux instance:
+----------------------------
+1. Open AWS --> EC2 instance 
+2. create a new instance -> name the instance(shell-practice) -> devops-practice -> select redhat -> t3.micro -> allow-all -> create a instance
+
+Shell:
+-------
+-> shell is an interpreter that executes the commands 
+
+what is shebang?
+------------------
+-> It is the first line in shell script, that interprets the commands and executes them. i.e., #!/bin/bash 
+
+How to print text inside shell script 
+-------------------------------------
+basic syntax: echo "Hello world!"
+
+-> cloning to the linux server 
+-> cd git-practice/
+-> ls -l 
+
+command is, git clone <HTTPS URL>
+
+How to run the script? - we have 3 ways 
+----------------------
+sh <script-name>
+bash <script-name>
+./<script-name> --> for this you should have execute permissions 
+
+firsttime--> git clone(downloads the entire repo)
+changes --> git pull(changes will be downloaded)
+
+DRY --> Don't Repeat Youself
+centralized place to update --> If you change at one place, it will update everywhere 
+-> It reduces the human errors
+-> And no accidental changes 
+
+git add . --> stage all the files/ or to add all the files 
+
+variables
+data types,
+conditionas, 
+loops, functions
+--> everything is same in every programming lanaguges 
+-> scripting also contains all these things but it is easy 
+
+Developers code 
+	performance --> high, should load fast 
+	DB --> must fetch the data fast 
+	memory and system resources --> should consume less 
+	
+Scrpting
+	No DB, no need of super performance and system resurces 
+	
+Variables in shell scripting:
+-------------------------------
+syntax:
+--------
+-> VAR_NAME=VALUE (no space between name, equal and value)
+-> Variables represented with $ symbol 
+-> If we change at one place, it changes the remainings places as well wherever it is 
+-> This is one of the example of centralized
+-> sh <file-name>.sh Ramesh Suresh 
+-> Here Ramesh and Suresh are arguements/input/args
+-> Variables can be done different ways,They are 
+1. Inside the script 
+2. Pass from outside through args 
+3. Enter at runtime 
+
+-> In a confedential information, script should ask for password at runtime that can be done by using 'read' command
+
+To add the files, to commit the files and to push into the Git --> It can be done in one single line 
+-> git add . ; git commit -m "variables"; git push origin main 
+
+data types:
+------------
+int, float, decimal, string, long, array, arraylist, set, map, etc.,
+
+1 --> number 
+lakshmi --> string 
+lakshmi rahul maha --> statement(arry or arraylist --> list of names)

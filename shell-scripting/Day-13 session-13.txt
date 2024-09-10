@@ -1,0 +1,170 @@
+Day-13 session-13(28/08/2024)
+--------------------------------
+
+recap:
+------
+variables
+conditions
+loops
+functions
+data types
+colors
+redirectors
+exit status 
+algorithm
+expense project: mysql 
+Idempotency 
+-------------
+-> If you run a script for infinite times, it should not change the result and it should give you the same result 
+
+
+Now, in today's clss
+
+expense project using shell-script:
+-----------------------------------
+-> we have to create 3 instances in AWS 
+-> mysql, backend, and frontend 
+-> use superPutty and connect with the server one after the other 
+-> Open github repositories -> expense shell
+-> clone the URL by using git clone <URL>
+-> create backend.sh in VS code
+
+Deploymenmt or new version release
+-----------------------------------
+1. downtime announc --> we are under maintenance on 29-Aug 2:00AM-6:00AM 
+2. Stop the server
+3. back up the previous version
+4. Remove the existing version
+5. Download the new version 
+6. Start the server 
+
+HTTP methodds and HTTP status codes:
+--------------------------------------
+1. GET --> read the data from database 
+2. POST --> create, you should send data. Usually it goes as json 
+3. PUT --> Update the existing information 
+4. DELETE --> It deletes the data 
+
+2** --> 200, 201, 204 --> success 
+4** --> 400 client side error
+
+400 --> bad request
+401 --> unauthorized 
+402 --> payment required 
+403 --> forbidden
+404 --> File not found 
+405 --> method not allowed
+
+5** --> server side error
+500 --> Internal server erroe
+502 --> bad gateway 
+503 --> service unavailable 
+504 --> gateway timeout 
+
+
+frontend -> backend -> mysql 
+
+set -ex  -->  setting the automatic exit, if we get error, set -ex for debug
+trap --> trap function holds or catches the error signal and display the message 
+ERR --> error signal 
+
+Usecase:
+---------
+
+Deleting old logs using shell script:
+-------------------------------------
+-> memory occupies with the unwanted logs 
+-> so, we should delete the old logs 
+-> unnecessaryily it occupies memory storage
+
+write a script that should delete .log files which are older than 14 days 
+
+*.log --> which are older than 14 days 
+
+1. we should know which directory 
+2. Is that directory exists?
+3. Find the files 
+4. Delete the files 
+
+
+yesterday's assignment:
+------------------------
+#!/bin/bash
+
+LOGS_FOLDER="/var/log/expense"
+SCRIPT_NAME=$(echo $0 | cut -d "." -f1)
+TIMESTAMP=$(date +%Y-%m-%d-%H-%M-%S)
+LOG_FILE="$LOGS_FOLDER/$SCRIPT_NAME-$TIMESTAMP.log"
+mkdir -p $LOGS_FOLDER
+
+USERID=$(id -u)
+#echo "user ID is: $USERID"
+R="\e[31m"
+G="\e[32m"
+N="\e[0m"
+Y="\e[33m"
+
+CHECK_ROOT(){
+    if [ $USERID -ne 0 ]
+    then    
+        echo -e "$R Please run this script with root privileges $N" | tee -a $LOG_FILE
+        exit 1
+    fi 
+}
+VALIDATE(){
+    if [ $1 -ne 0 ]
+    then 
+        echo -e "$2 is $R failed $N" | tee -a $LOG_FILE
+        exit 1 
+    else 
+        echo -e "$2 is $G success $N" | tee -a $LOG_FILE
+    fi
+}
+
+echo "script started executing at: $(date)" | tee -a $LOG_FILE
+
+CHECK_ROOT
+
+LOG_FILE=/var/log/mysql_installation.log
+
+# Function to validate the exit status of commands
+VALIDATE() {
+  if [ $1 -ne 0 ]; then
+    echo -e "$2... $R FAILED $N" | tee -a $LOG_FILE
+    exit 1
+  else
+    echo -e "$2... $G SUCCESS $N" | tee -a $LOG_FILE
+  fi
+}
+
+
+echo "Checking if MySQL is installed or not..." | tee -a $LOG_FILE
+mysql --version &>>$LOG_FILE
+if [ $? -ne 0 ]; 
+then
+  echo "MySQL is not installed. Installing now..." | tee -a $LOG_FILE
+  dnf install mysql-server -y &>>$LOG_FILE
+  VALIDATE $? "MySQL Server installation"
+else
+  echo -e "MySQL is already installed.... $Y SKIPPING $N" | tee -a $LOG_FILE
+fi
+
+echo "Checking if MySQL server is enabled or not..." | tee -a $LOG_FILE
+systemctl is-enabled mysqld &>>$LOG_FILE
+if [ $? -ne 0 ]; then
+  echo "MySQL server is not enabled. Enabling now..." | tee -a $LOG_FILE
+  systemctl enable mysqld &>>$LOG_FILE
+  VALIDATE $? "Enable MySQL Server"
+else
+  echo -e "MySQL server is already enabled.... $Y SKIPPING $N" | tee -a $LOG_FILE
+fi
+
+echo "Checking if MySQL server is started or not..." | tee -a $LOG_FILE
+systemctl is-active mysqld &>>$LOG_FILE
+if [ $? -ne 0 ]; then
+  echo "MySQL server is not yet started. Starting now..." | tee -a $LOG_FILE
+  systemctl start mysqld &>>$LOG_FILE
+  VALIDATE $? "Start MySQL Server"
+else
+  echo -e "MySQL server is already started.... $Y SKIPPING $N" | tee -a $LOG_FILE
+fi

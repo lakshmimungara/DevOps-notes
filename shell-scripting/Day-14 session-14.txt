@@ -1,0 +1,86 @@
+Day-14 session-14(29/08/2024)
+-----------------------------
+Recap:
+------
+-> we have completed expense project by using shell scripting
+
+variables and diffent types of variables
+-> mentined in scripts 
+-> passed from outside 
+-> taking user as a prompt
+-> given command taken output 
+-> conditions 
+-> functions
+-> loops -> while loop
+-> redirectors 
+-> installation scrpts 
+-> set command 
+-> colors 
+-> delete log files 
+-> and completed expense project by using shell script
+
+Now in today's class
+-----------------------
+-> Within linux prefer to write shell script, because shell is native there 
+-> python --> getting data from external systems 
+for eg: Pulling data from AWS and creating jira tickets 
+
+crontab:  - imp for interviews
+---------
+-> command is, crontab -e . Here
+-> you can schedule the scripts periodically(for one min, or for one day, or for midnyt etc). we can run mid night scripts, weekend scripts, hourly scripts
+-> It is useful for hourly backup and daily backup 
+syntax for crontab:
+---------------------
+5  4   *   *     *
+M  H   day month day(week)
+
+
+examples:
+---------
+0 0 * * *  -> It runs at 12 am in the midnight everyday 
+0 1 * * *  -> every day it runs one hour
+0 8 * * * -> 
+0 0 * * SUN -> every month on sun it will run 
+*/2 * * * -> It runs for every two minutes 
+
+1. create server called shell-script
+2. connect with the super Putty 
+
+scheduling -> atwhat it has to run and what to run and what location it is in  
+/home/ec2-user/git-practice/18-delete-old-logs.sh
+
+
+backup:
+-------
+-> Application writes logs on daily basis -> like end-user application or binding application. It writes GBs of logs
+-> we have to keep that logs in a zip and place it in a source file
+-> logs-source-dir -> destination-directory(zip them)
+-> After zipping the files it removes from application server and moves into backend server
+-> Application server is only for application purpose not for storing logs
+
+What if you store lot many logs in a applications?
+-------------------------------------
+-> for example, we have lot many photos in our mobiles. Suppose if we store too many pictures, mobile may slowdown and storage fills 
+-> So, we are moving the pictures into hard disk 
+-> Likewise,we cannot stores logs in applications for so many days. we have to move old files into destination directory and they will run some scripts and they will pick that files and move them into different servers for backup purpose 
+-> we have do like a command;
+-> Dynamicaly user gives source directory, destination directory, no.of days 
+
+-> no.of days --> optional, if they don't provide, default is 14 days 
+
+Algorithm for above:
+---------------------
+1. get the source directory, destination directory, days from user 
+2. If they are not providing, show them usage and exit
+3. If they provide, check those directory are exist, if not exist exit the script
+4. If exist, find the files more than 14 days, zip them and move to destination directory, delete in source directory 
+
+/home/ec2-user/app-logs 
+/home/ec2-user/backup 
+
+find . -name "*.log" -mtime +14 | zip <name-of-zip-file> -@     --> it indicates that we are zipping all the files
+
+
+Check Hard disk memory, send email if it crosses more than 75%
+-----------------------------------------

@@ -1,0 +1,168 @@
+Day-11 session-11(26/08/2024)
+-----------------------------
+Recap:
+------
+There are 5 main elements. They are, 
+1. variables
+2. Data types 
+3. Conditions 
+4. Loops 
+5. Functions
+
+-> Before writing a script, first you need to write algorithms 
+
+variables:
+----------
+DRY --> Don't repeat yourself 
+-> Main usage of variables is, If we keep one value into a variable and we can refer that variable and there is no human errors 
+-> Variables inside script
+-> variables passed as argument 
+-> variables sent through script interruption 
+
+FRUITS=("Apple" "Jack" "Banana")
+		  0       1        2
+
+How do you run inside the shell script and to get the value?
+---------------------------------------------
+-> Adding to staging area
+-> Commit 
+-> Push 
+
+when script start executed, we will note down the time 
+
+If we want to run in the shell script and take the value to the variable:
+--------------------------------------------
+VARIABLE=$(command)
+
+Note: Shortcut key - ctrl + R and enter a little bit --> to get the previous commands 
+
+special variables:  imp for interviews 
+------------------
+1. I want all the variables passed to the script  --> $@
+2. To know the Number of variables in a script --> $#
+3. To know the script name --> $0
+4. Currect working directory --> $PWD 
+5. To know the directory of current home --> $HOME
+**6. Process ID of the script executing now --> $$
+**7. Process instance ID of last background command --> $!
+
+Conditions:
+-----------
+syntax:
+-------
+
+if[expression]
+then
+	execute these statements if above expression is true 
+else 
+	execute these statements if above expression is not true/false 
+fi
+
+for example:
+-------------
+if(today == "Mon" or "Tue" or "Wed" or "Thur" or "fri")
+{
+	print "attend the class"
+}
+else{
+	print "no class"
+}
+
+
+if(today != "sat" or "sun")
+{
+	print "attend class"
+}
+else
+{
+	print "no session"
+}
+
+for example:2
+-------------
+1. get the number 
+2. check it is greater than 20 or not
+3. print the number is greater than 20 
+4. else print the number is less than 20 
+
+-> Now, install mysql through shell script 
+
+First we should have a root access;
+
+1. check if the user has root access or not 
+2. If root access, proceed with the script 
+3. Otherwise through the error
+4. Check already installed or not, if installed tell that the user it is already installed 
+5. If not installed, install it
+6. check it is success or not
+
+-> If you face any error, what you do?
+--------------------------------------
+proceed running the script 
+stop the script execute, clear error and run again 
+ 
+Disadvantage of shell scripting:
+--------------------------------
+-> It will not stop even if it face the error
+
+How you will check previous command is success or not 
+---------------------------------------------
+we have exit status in shell scripting 
+-> exit status --> $? 
+-> This $? will tell you the state of previous command
+-> If the value of this is 0 then it is succes 
+-> numbers from 1 to 127, it is failure 
+-> If we enter the exit and any number other than 0, it decides that it is a failure and comes out of the loop 
+
+
+Functions:
+----------
+-> some work to do repeatedly
+-> we need inputs to perform some work -> we get output 
+-> It takes inputs and checks 
+
+login(username, password){
+	select * from user where user='username' and password='password'
+	if($? -eq 0)
+	then 
+		echo "login success"
+	else 
+		echo "login failure"
+	fi 
+}
+
+-> You can call function anytime 
+
+function syntax:
+-----------------
+
+FUNC_NAME()
+{
+
+}
+FUNC_NAME
+
+-> Repeated task can be provide in the functions 
+and we can call whenever we want 
+
+Better scripting or coding:
+---------------------------
+1. less no.of lines but same work 
+2. double no.of lines but same work 
+
+-> performance is not an issue in the shell scripting
+
+colors:
+-------
+success is in green color 
+failure is in red color
+
+31m --> red 
+32m --> green 
+33m --> yellow
+
+"\e[31m"  --> here -e indicates that we are enabling the color codes 
+example: echo -e "\e[32m Hello World"
+
+
+

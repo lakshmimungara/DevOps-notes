@@ -1,0 +1,67 @@
+Day-12 session-12(27/08/2024)
+
+Recap:
+------
+1. variables --> It is comes under DRY concept, whenever you feel that one thing is repeating again again then that value can be placed in a variable and it can be used everywhere
+-> It is a central place, if you change one variable and it can used everywhere 
+
+2. data types
+3. conditions -> it depends on condistions and decisions. It is very generic thing 
+4. functions -> If frequently you want to do same work repeatedly, then we use functions 
+5. Loops
+
+colors -> It is for user experience 
+exit status:
+------------
+success -> 0 
+failure -> 1 to 127 
+
+Now, we are going look into loops
+
+1. create a file 14-loops.sh 
+2. print 0 to 10 numbers 
+Loops are very important for coding
+
+general syntax for loops:
+---------------------------
+for(int i=0;i<100;i++)
+{
+print i;
+}
+
+syntax in shell-scripting:
+--------------------------
+for i in 1 2 3 4 5 6 7 8 
+do 
+	echo $i 
+done 
+Redirections:
+---------------
+ls -l > output.txt --> by default it redirects only success o/p 
+1 --> success 
+2 --> failure 
+
+ls -l 2>output.txt --> redirects only failure/error output
+ls -l 1>output.txt
+ls -l &>output.txt --> either it may be success or failure keep in output.txt 
+
+/var/log/shell-script/16-redictors-<timestamp>.log
+
+-> file name is 16-redirectors.sh --> I want this as 16-redirectors
+
+-> write logs on both terminal and logfile 
+Important messages should be printed on terminal and in file also. So, for this purpose we use tee command 
+
+tee command -> It writes logs to multiple destinations
+
+Idempotency:
+------------
+-> If you run a program for infinite times, it should not change the result
+
+CRUD 
+creation --> check if it is already created or not 
+Read --> No issues on read command
+Update --> No issues on updations of same thing 
+Delete --> No issue, if it is not existed or already deleted 
+
+Check already mysql root password id setup or not, if setup you can tell already done... otherwise setup it 
