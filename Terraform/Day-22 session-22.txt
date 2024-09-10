@@ -1,0 +1,151 @@
+Day-22 session-22(10/09/2024)
+------------------------------
+Recap:
+------
+Linux servers -> devops engineer has to learn linux servers and commands at intermediate level
+3 tier architecture 
+
+shell scripting -> In shell scriping scalability is very less and we cannot handle large no.of servers 
+Ansible -> we can easily automate configuration 
+
+cloud features:
+---------------
+1. automatically cloud gets created and deleted 
+2. scalability
+3. creating all the infrastructure 
+
+
+Now in today's class:
+-----------------------
+Terraform is a Iaac(Infrastructure as a code)
+-> EC2 
+-> R53 
+-> IAM users 
+-> these 3 are basic and default and we did for practice purpose 
+
+problems faced by manual infrastructure:
+------------------------------------------
+-> everything in console, by mistake if someone edit wrong, then application will go down for 30 mins to 1 hr 
+-> Application restore back to previous stage if something goes wrong 
+-> At least we have to understand what our application was at 1 year ago --> version control 
+-> consistent Infrastructure -> All environment configurations and infrastructure should be same -> it can be only possible through code by automating  
+-> CRUD --> create infra, read, update, deleting the infrastructure ->  These applications we can not track properly by manually  
+-> Inventory/resources management -> It is tough to identify the resources which using in infrastructure by manually --> If you see terraform script, you know what are the services you are using
+-> cost optimisation -> creation in 5 mins, deletion in 5 mins 
+-> Dependency management --> we need dependency security group to create ec2 instances, ec2 instance after creation of all dependencies 
+-> Code reuse --> code reuse feature in ansible is roles, and in terraform is modules 
+
+Introduction to Terraform:
+--------------------------
+->for example; Infrastructure is a base 
+-> If infrastructure is good, business runs automatically 
+-> likewise, if infrastructure is good, applications runs perfectly and works good 
+-> In a new project, maximum time they spend on infrastructure 
+-> once if the infrastructure gets confirm, then applications run fast 
+-> becoz, of this infrastructure is important 
+
+Terraform is the declarative way of creating infrastructure -> It means you are giving orders to terraform to create infrastructure just by providing right syntax 
+
+There is, 
+1. easy syntax 
+2. no sequence 
+3** state management --> terraform can track what it created, It can upgrade easily 
+
+-> Terraform is most popular in the market 
+-> HCL --> Hashicorp configuration language 
+
+Installation of terraform:
+---------------------------
+
+Go to chrome and download & install terraform -> windows 36.zip 
+create a folder called software and unzip the terraform zipped file -> terraform.exe 
+setup the environment variables -> go to path -> new -> give the new path of terraform -> press OK
+open gitbash -> enter terraform 
+
+
+To enable the aws configure --> we have to install AWS command line 
+-> By default aws has command line but if we want to do in laptops we should install the command line 
+
+Installation of command line 
+-----------------------------
+-> Open chrome -> search for aws command line install 
+-> Click on the first link and install the CML for windows 
+-> download by clicking on the link 
+
+
+we write code in VS code of terraform -> it takes help of command line and pushes into the AWS 
+-> Terraform connects to the aws CLI 
+-> we write terraform codes in vs code and pushes into the AWS through CLI 
+
+
+Terraform:
+-----------
+-> we can connect with any cloud. AWS, azure, GCP, alibaba, digital ocean, etc., GitHub, networking etc. --> these are all called as providers 
+-> whatever we do in cloud and in providers  -> they are called as resources 
+
+vriables
+data types 
+condition 
+loops 
+functions 
+
+some extra topics 
+	data source 
+	locals 
+	outputs
+	providers 
+	provisoners 
+
+create EC2 instance through terraform:
+-------------------------------------
+terraform file extension is .tf 
+
+provider.tf --> where you can declare what provider you are using 
+
+syntax:
+--------
+resource "resource-type" "name-of-resource" {
+	key = values
+}
+
+
+for humans these are mandatory;
+name 
+description 
+ingress manadatory 
+egress mandatory 
+-> but in terraform they are optional, if not created it takes default values 
+
+ingress -> It means incoming traffic 
+egress -> It means outgoing traffic 
+
+for example:
+------------
+-> while entering cabin or companies you have to scan your ID.. -> Ingress
+-> while exit we just have the switch to push in the cabin -> egress 
+
+commands:
+---------
+terraform init --> Initialize terraform, it will connect with provider and downloads it 
+
+-> terraform connects to the AWS through the providers only 
+
+
+we should not push .exe files and zip files into github 
+
+
+what if we want terraform to run in the linux server?
+-----------------------------------------------
+-> first we need to pull the code and we have init the terraform there
+
+we have to keep .gitignore file to ignore the .terraform folder 
+-> we can find .gitignore file by searching terraform .gitignore in the chrome 
+-> copy the content and paste it in the vs code .gitignore file 
+
+
+commands:
+---------
+terraform init 
+keep .gitignore always 
+terraform plan --> it checks the syntax and reads the content and gives what it can do --> it cannot create resources, it will just plan 
+terraform apply or terraform apply -auto-aprove
