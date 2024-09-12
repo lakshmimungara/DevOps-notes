@@ -1,0 +1,85 @@
+Day-24 session-24(12/09/2024)
+-----------------------------
+Recap:
+-----
+variables
+terraform.tfvars --> overrides the variables 
+variables precedence 
+conditions 
+
+
+Now in todays class:
+-------------------
+Top to Bottom approach 
+-----------------------
+1. first thing is what is the problem  --> manual infrastruture 
+2. How terraform is solving --> Through script, infrastruture as a code 
+3. Apply 
+
+whatever we create in cloud are called as Resources, and cloud vendors are called as providers(AWS,GCP,networking,Azure,active directory etc)
+1. faster releases
+2. less defects 
+
+The API between terraform and providers are developed by community of terraform and AWS 
+
+-> To hit through API, we should need authentication in common
+
+To create any resource, Things we should know
+
+1. first we should know what resource can do?  AWS resource/service and how it works 
+2. It needs some input/arguements
+3. providers will give us outputs 
+4. use those outputs and create other resources 
+
+This entire process can be done or acheieved  by using variables, condition, loops, functions 
+
+script should have no.of lines less, when it has less lines execution makes easier and maintenance will be good 
+   
+we need 
+1. 3 ec2 resources 
+2. 3 r53 records 
+
+Till now we have created resources, get the outputs and create other resources 
+
+AMI ID frequently changes... whenever you update something in AMI, ID will changes 
+
+you can query existing info from the providers --> This is possible through data source 
+
+backend API --> creating records(POST), getting data (GET)
+
+for example; when we are searching any product online we apply some filters --> like search the product, apply the filters --> this is query 
+
+devops-practice --> RHEL-9 and apply other filters too 
+
+
+data- source syntax:
+---------------------
+data "aws_ami" "jondevops"{
+	most_recent  = true 
+	owners = ["987731927391"]   # unique   -> till this line we will get the All recent AMI from joindevops
+	
+	filter {
+		name = "name"
+		values = ["RHEL-9-devops-type"]
+	}
+	
+	filter {
+		name = "root-devices-type"
+		values = ["ebs"]
+	}
+	
+	filter {
+		name = "virtualization-type"
+		values = ["hvm"]
+	}
+}
+
+Iaac --> Authentication --> API --> Providers
+
+All recent AMI from joindevops with name RHEL-9-DevOps-practice 
+
+
+inputs --> args to create resources 
+outputs --> after creation of resource. Public ip, pvt ip, instance ID, etc
+data sources --> instead of getting args manually, you can query existing information 
+

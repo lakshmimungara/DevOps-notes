@@ -1,0 +1,126 @@
+Day-23 session-23(11/09/2024)
+----------------------------
+variables
+conditions
+data types 
+loops 
+functions 
+
+variables:
+------------
+variables is a containers which holds value 
+
+PERSON=Ramesh
+
+vars:
+	PERSON: Ramesh
+
+variable syntax in terraform:
+----------------------------
+Variable "person"{
+	default = "Ramesh"
+	type = string 
+}
+
+string name = "ramesh"
+
+Datatypes:
+----------
+string
+number 
+boolean 
+
+
+tags are map in terraform 
+
+Tagging strategy:
+----------------
+-> Tagging is important in cloud 
+
+project structure:
+-----------------
+Project 
+component/module 
+environment 
+
+Expense:
+---------
+Mysql 
+Backend 
+frontend 
+
+Emvironment:
+------------
+DEV 
+PROD 
+
+terraform.tfvars
+----------------
+Using this file, we can override the default values in variables or else you can set the values also 
+
+terraform.tfvars and default values:
+------------------------------------
+first preference goes to terraform.tfvars 
+next default values 
+
+preferences:
+-------------
+1. command line 
+2. terraform.tfvars 
+3. environment variables 
+4. default 
+
+syntax for setting up the environment variables:
+-------------------------------------------------
+export TF_VAR_instance_type=t3.xlarge
+
+
+conditions:
+-----------
+if (expression){
+	run this if expression is true 
+}
+else{
+	run this if expression is false 
+}
+
+expression ? "run this if true" : "run this if false"
+
+environment is prod t3.micro or t3.micro 
+
+
+outputs:
+--------
+every resource exports some values, we can take them and create other resources 
+
+loops:
+------
+1. count based loop 
+2. for or for each 
+
+
+count.index --> 0
+count.index --> 1
+count.index --> 2
+
+Functions in terraform:
+----------------------
+Terraform has no custom functions, we must use built-in functions 
+
+merge  --> merger 2 lists 
+
+list-1 -> name=lakshmi, course=devops 
+list-2 -> name=lakshmi, course=devops, duration=120 hrs 
+list-3 -> name=maha, course=AWS
+merge(list-1,list-2)
+
+name=lakshmi, course=terraform 
+name=maha, course=AWS, duration=120 hrs 
+
+
+3 ec2 instances 
+r53 records 
+
+mysql.daws81s.fun --> pvt ip 
+backend.daws81s.fun --> pvt ip 
+frontend.daws81s.fun --> public ip 
