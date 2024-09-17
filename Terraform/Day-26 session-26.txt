@@ -1,0 +1,75 @@
+Day-26 session-26(16/09/2024)
+------------------------------
+Recap:
+------
+IaaC advantages
+varibales 
+data types 
+conditions 
+loops --> count based loop, count.index --> used for list 
+functions 
+
+locals --> to store expressions, we cannot overriden variables 
+outputs --> provide the output of resources, like IP, id etc 
+data source --> query the information from provider like AMI ID etc 
+state and remote state --> terraform uses condept to compare declared vs actual/real infra. We keep state remotely in collabation environment
+locking --> make sure infra provisioning is not running parallely 
+tfvars --> to override default varibales
+
+Now in today's class:
+---------------------
+for each loop --> It is used to iterate map 
+
+for each will give us a special variable with name each 
+
+
+expense infra:
+------------------
+requirement is, 
+
+frontend --> t3.micro 
+backend --> t3.micro 
+mysql --> t3.small 
+
+If frontend name should be daws81s.fun otherwise backend/mysql.daws81s.fun 
+
+dynamic blocks:
+---------------
+If a block is repeating multiple times we can iterate that also 
+-> It is not that much useful 
+
+when something gets repeated we can use loop 
+
+provisioners 
+-------------
+you can run provisioners to model specific actions on the local machine or on a remote machine in order to prepare servers or other infrastructure objects for service 
+
+provisioners are used to take some actions locally or remotely 
+
+local --> where teraform executed is local eg: in
+remote --> inside the servers you created... inside the servers of backend, frontend and mysql 
+
+1. local-exec 
+-> we use self to represent in that local resource 
+-> If we have Ip address, we can connect to it and can do whatever we want 
+2. remote-exec --> execute the commands inside the remote servers
+-> With the help of connections, it connects to the server and execute the commands in it 
+-> provisioners will execute at the time of creation 
+-> By default, provisioners run when the resource they are defined within is created. 
+-> createion-time provisioners only run during creation 
+
+so, by using provisioners we can connect locally and remotely 
+
+for example:
+------------
+when suddenly power goes off, we may loss some date. so we have UPS(unit power saving) in laptops to save the data 
+Likewise, we will get the request when customers are using the servers. if suppose we do shutdown then they will get different errors 
+Graceful shutdown - Suppose if we given stop command to the server then it will execute the commands and stop after completion  
+
+while destroying the nginx gets stop and get destroyed 
+
+It is a general process, first it completes the running servers and destroy after completion 
+
+By default, provisoners will be execute by the time of creation 
+
+when = destroy  --> first it stops the server and then destroy 
