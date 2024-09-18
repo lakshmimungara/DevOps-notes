@@ -1,0 +1,142 @@
+Day-27 session-27(18/09/2024)
+----------------------------
+Recap:
+-------
+for_each loop 
+dynamic blocks 
+provisioners 
+
+now in today's class:
+---------------------
+one of the advantage is, 
+consistent infra across all environment 
+
+-> To create infrastructure in different environment by using terraform, we have three options. They are, 
+1. Using tfvars 
+2. terraform workspaces
+3. seperate repos 
+
+In resource definition we have,
+left side --> arguments 
+right side --> values 
+-> we cannot change the arguments but we can change values
+
+-> create one repo terraform-multi-env
+
+what is the purpose of tfvars?
+------------------------------
+-> It override the default variables 
+for example;
+dev.tfvars --> this should be for dev environment
+prod.tfvars --> this should be for prod environment
+
+backend --> s3 and dynamo db 
+
+1. keep the same bucket but different key 
+2. keep different buckets for different environment and different key 
+
+preferring 2nd option would be better for different environment
+
+expense infra:
+--------------
+3 ec2, 1 sg, 3 r52 records 
+
+
+terraform-multi-env -> tfvars -> dev and prod subfolders -> add backend.tf in each 
+
+bucket = "81s-remote-state-bucket-dev"
+key    = "tfvars-demo-dev"  # a repo sould have unique s3 key 
+region = "us-east-1"
+dynamodb_table = "81s-locking-dev"
+
+bucket = "81s-remote-state-bucket-prod"
+key    = "tfvars-demo-prod"  # a repo sould have unique s3 key 
+region = "us-east-1"
+dynamodb_table = "81s-locking-prod"
+
+mysql-dev 
+backend-dev
+frontend-dev 
+
+
+developement:
+------------
+mysql-dev-daws81s.fun
+backend-dev-daws81s.fun
+frontend-dev-daws81s.fun
+
+production:
+-----------
+mysql-prod-daws81s.fun
+backend-prod-daws81s.fun
+daws81s.fun   # domain name 
+
+Resource definition and arguements remains same and only the values get changed in developement and production environment
+
+we will not open all the ports at a time in production 
+
+terraform.tfstate file pointouts to developement environment. 
+so, we should re-intialize/reconfigure it to point the production environment
+
+If you change the variables logically into different environments then we can use them with the same code 
+
+startswith 
+----------
+startswith(each.key, "frontend") ? [each.value.public_ip] : [each.value.private_ip]
+
+The only difference is to create different folders, different tfvars and different backend,tf files 
+
+workspaces:
+------------
+we have to create ec2 instance 
+-> if dev --> t3.micro 
+-> if prod --> t3.micro 
+
+-> In workspaces, no need to create separate buckets, it will all managed by terraform 
+
+By using workspace, terraform will give us one value --> terraform.workspace 
+
+If we are in prod, terraform.workspace == prod 
+If we are in dev, terraform.workspace == dev 
+
+what lookup does?
+it gives key and maps to the value which you wanted 
+
+Advantages:
+-----------
+1. code reuse --> same code 
+
+disadvanatge:
+-------------
+1. easy to do errors 
+2. not easy to implement 
+3. changes made can effect all environments 
+
+
+what if client asks only for workspaces?
+-----------------------------------------
+yes, it is good to reuse but managing code in tfvars and workspaces is tough when it gets increases. so, when we make any mistake in production, the entire infrastructure gets down 
+
+so, we have another approach --> seperate code for seperate environment 
+
+expense-infra-dev 
+expense-infra-prod 
+
+How do you create different multiple environments using terraform?   - imp for interviews
+--------------------------------------
+terraform workspaces used for different environment.
+-> It will give us terraform.workspace variable and keeps the current environmenmt value inside it  
+There are 3 options, using tfvars and using workspaces, and we have disadvanatge more by using these two. The only advantage is code reuse and there are more disadvanatges easy to do errors, not easy to implement, change made can effect all environments 
+
+So, becoz of these disadvanatges I will go for seperate code for seperate environment 
+
+disadvantage in seperate code and separate environment --> duplicate code 
+
+Module development:
+--------------------
+DRY(don't repeat yourself)
+
+functions --> inputs and outputs, we call function. you can call infinite times 
+
+write code once and call them many times modules --> resource definition and arguments are same and only values are different 
+
