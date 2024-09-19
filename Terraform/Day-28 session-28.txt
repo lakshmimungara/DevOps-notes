@@ -1,0 +1,247 @@
+Day-28 session-28(19/09/2024)
+------------------------------
+Recap:
+------
+
+Module development -> DRY concept 
+-> we reuse the code and no need to repeat the code 
+-> resources and arguements are remains same only the values changes 
+
+These are varibales expected by module, not arguements 
+
+example: 
+--------
+resource definition is in terraform-aws-ec2 
+-> provider is not in module, but whoever calls the module that has provider file 
+
+module "ec2"{
+    source = "../terraform-aws-ec2"
+    
+    # these are varriables expected by module, not arguments of resource definition 
+    # you can also create variables or else you can directly use values here 
+    # ami_id = "ami-09c813fb71547fc4f"
+    ami_id  = var.ami_something
+}
+
+
+advantages:
+-----------
+code reuse 
+updates are easy and centralized 
+best practices can be enforced 
+you can restrict user using few options 
+
+How can you restrict the users? 
+------------------------------
+variable "instance_type"{
+    default = "t3.micro"
+    type = string
+    validation {
+        condition  = contains(["t3.micro", "t3.medium","t3.small"], var.instance_type)
+        error_message = "Instance type should be t3.micro, t3.medium or t3.small"
+    }
+}
+
+
+
+module "ec2"{
+    source = "../terraform-aws-ec2"
+    
+    # these are varriables expected by module, not arguments of resource definition 
+    # you can also create variables or else you can directly use values here 
+    # ami_id = "ami-09c813fb71547fc4f"
+    ami_id  = var.ami_something
+    instance_type = "t3.xlarge"
+    security_group_ids = ["sg-0525227f8e227493c"]
+}
+
+
+VPC(virtucal private cloud)
+-----------------------------
+-> Before cloud we have data centers
+for example; 
+before creating any company, first thing they will create one data center 
+-> data centers contains all the servers, it will get internet connection 
+
+
+disadvantages of data center
+------------------------------
+
+-> Imagine, you own a bussiness of restaurents orders 
+Basic requirements are,
+1. physical space 
+2. buy servers 
+3. power connection 
+4. network connection 
+5. security gaurd 
+6. cooling - AC
+7. OS resources, network resources
+8. maintainence 
+
+
+I don't want these all, we just need cloud resource with cloud account 
+-> cloud maintains all the things 
+-> we don't need all above mentined requirements 
+-> so, that is why everybody moving to cloud 
+
+VPC means, it is a isolated datacenters in cloud. Resources created inside VPC is completely private
+-> VPC is a isolated cloud resource 
+
+for example:
+-------------
+we have, 
+frontend server --> public must access this 
+backend server -> secure, public should not access this. Don't created public ip and no internet 
+mysql server --> most secured is mysql server, all users and orders data, cards etc -> Don't created public ip and no internet 
+
+-> public cannot access the backend and database directly. they only can access frontend server 
+
+We can get these all by seperate servers logically inside VPC 
+
+subnetting:
+------------
+for example:
+------------
+-> One villages consists of different streets(different issolation)
+-> different streets consists of individual houses
+-> Houses can be identified by H.No's 
+-> Street has street number and name 
+-> Total village has main entrance 
+-> And we have internal roads as well 
+
+comparing the above example with the VPC 
+------------------------------------
+-> VPC has name called CIDR(classless interdomain routing - just like a pincode)
+->we have subnets inside CIDR, they can be a public subnet, private subnet and database subnet 
+
+village name, pincode --> VPC name, CIDR 
+streets name, number --> subnets name, CIDR 
+roads --> routes 
+main road --> internet connection, internet gateway 
+main gate of house --> security group/firewall 
+house --> server 
+
+
+CIDR --> classless interdomain routing 
+192.168.3.4  --> 4 octates 
+
+255.255.255.255 --> max IP 
+
+Genrally range of Ip;
+10.0.0.0/16 --> CIDR 
+
+-> total IP address bits are 32. and possible no.of IP address are 2^32 
+
+-> Here, we have given 16 it means first 16 bits are blocked which means 10.0 are blocked and we can use 0.0 bits 
+
+10.0.0.1
+10.0.0.2
+.
+.
+.
+10.0.0.255 
+
+10.0.1.1
+10.0.1.2
+.
+.
+.
+10.0.1.255 
+
+2^16 = 65,536
+
+10.0.0.0/24 --> first 3 are blocked 
+
+10.0.0.255 
+
+10.0.1.0/24 --> 10.0.1.0 .....10.0.1.255 
+
+open AWS -> search for VPC -> create VPC -> enter the name and give IPv4 CIDR- 10.0.0.0/16 -> click on create VPC 
+
+Creating subnets:
+-------------------
+VPC -> subnets -> select the VPC name -> give the subnet name -> select the availability region as US-east-1a -> IPv4 subnet CIDR - 10.0.1.0/24 -> click on create subnet 
+
+same process for; 
+1. expense-public - 10.0.1.0/24, 
+2. expense-private - 10.0.2.0/24 
+3. expense-database 10.0.3.0/24
+
+creation of Internet gateway:
+-----------------------------
+click on create gateway -> enter the name 
+then after that attach the VPC and select the already created VPC and attach to it 
+
+Creation of route table:
+-------------------------
+In route tables -> create a route table -> give the name -> select VPC -> and click on create route table 
+-> public route table should be associated with the Internet gateway 
+
+click on edit routes -> select 0.0.0.0/0 and internet gateway and from dropdown select the existed gateway -> save changes 
+
+And now click on subnet associations -> 
+
+VPC creation 
+subnet creation 
+Internet gateway creation
+
+public and private subnet 
+--------------------------
+subnet which has internet connection is called as public subnet. private/app subnet will not have internet connection as routes. database subnet is also called as private subnet 
+
+10.0.0.0/16 --> internal routes 
+
+-> secure servers can't be reached directly...this is incoming/ingress traffic 
+-> traffic from servers..... outgoing/egress traffic 
+
+database --> yum install mysql-server --> outgoing 
+-> we are calling from servers to the Yum repos. so, it is outgoing 
+-> Outgoing will get internet by using NAT gate 
+
+what is NAT?
+------------
+-> There will be no internet it means there is no access for servers and if servers wants other dependencies etc to outside is by using NAT gate 
+
+This is the mechanism private servers connects to internet for outgoing traffic like packages installation, security patches downloads 
+
+Condition for NAT gate:
+-----------------------
+NAT --> when server stops and starts IP address will change. It should have same IP always 
+
+static IP we call it in AWS as elastic IP
+
+creation of elastic IPs:
+------------------------
+Elastic IPs -> Allocate elastic IP address -> select region as us-east-1 and click on allocate 
+
+creation of NAT gateways :
+--------------------------
+NAT gateways -> create NAT gateway -> give the name -> select the public subnet(expense-public) -> select the elastic IP which was created earlier -> and click on create NAT gateway 
+
+If private route and database route whats to reach internet is through the NAT gateway 
+
+steps to follow:
+----------------
+
+create VPC 
+create igw and associate with VPC 
+create public, private and database subnets 
+create public, private and database routes tables 
+create routes inside route table 
+create route tables with appropriate subnets 
+associate route tables with appropriate subnets 
+created elastic IP 
+created NAT gateway 
+added NAT routes in private and databse subnets 
+
+High availability:
+------------------
+
+Hyd -> region 
+east hyd -> Availability Zone  
+west hyd -> Availability Zone  
+-> keeping servers in all the regions are High availability 
+
+1 public subnet in us-east-1a, 1 public subnet in us-east-1b
+1 private subnet in us-east-1a, 1 private subnet in us-east-1b
+1 database subnet in us-east-1a, 1 database subnet in us-east-1b
