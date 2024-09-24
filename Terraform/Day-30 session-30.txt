@@ -1,0 +1,48 @@
+Day-30 session-30(24/09/2024)
+-----------------------------
+Recap:
+-----
+If we started any project first thing is to create VPC -. network is imp 
+
+create VPC  --> 10.0.0.0/16  --> 2^16 ip address
+create IGW
+associate IGW to VPC 
+create subnets  --> public, private and DB
+created route tables and added routes 
+NAT and elastic IP
+	public --> internet connection through IGW
+	private --> NAT, egress connections or outgoing connections 
+route table associations with subnets 
+
+Now in today's class:
+--------------------
+create two repos --> terraform_aws_VPC and vpc_module_test
+
+terraform naming resources
+--------------------------
+1. terraform resource name -->use underscore everywhere where you use resources, no caps
+2. don't repeat resource type in name 
+3. If only one resource of its type, name it as "this" or "main"
+4. Use - inside arguments values and in places where value will be exposed to a human 
+5. use plural if multiple resources 
+6. include the count/ for_each inside resource or data source block as the first argument at the top 
+7. tags can be at last
+
+terraform_aws_VPC -> main.tf 
+common tags -> common for all resources under this project 
+resource tags --> vpc_tags 
+
+if we changed key, have to reconfigure the module -> terraform init -reconfigure 
+
+vpc --> expense-dev 
+HA --> atleast 2 AZ 
+public --> 1a, 1b --> 10.0.1.0/24, 10.0.2.0/24
+private --> 1a, 1b --> 10.0.11.0/24, 10.0.12.0/24
+DB --> 1a, 1b --> 10.0.21.0/24, 10.0.22.0/24
+ 
+1. get the AZ 
+2. get first 2 
+
+expense-dev-public-us-east-1a 
+we need to create database_subnet_group --> all databse subnets under a group 
+
