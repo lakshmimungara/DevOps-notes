@@ -1,0 +1,91 @@
+Day-31 session-31(25/09/2024)
+------------------------------
+Recap:
+------
+vpc is automated using terraform 
+terraform naming conventions 
+HA -> subnets should be in two availability zones 
+vpc created 
+igw 
+public private database subnets in 1a and 1b AZ
+eip 
+NAT gateway 
+
+
+Now in todays class:
+---------------------
+we going to create, 
+route tables - public, private, and database
+-> tags always optional 
+routes 
+difference between public route table and private route table --> internet access 
+associations with subnets 
+
+associations:
+--------------
+1 public route table --> 2 public subnets 
+
+peering
+---------
+for examples:
+-------------
+-> village 1 and village 2 are connected through road 
+-> village 1 and village 2 has different pincodes 
+-> and two villages has different streets which are connected to main road 
+-> village 1 is requesting to village 2 for connecting roads and village 2 should accept 
+
+Likewise, some servers are in VPC and some are in another VPC 
+-> By default, two VPCs not connect to each other 
+-> To establish the connection, two VPCs has to connect to each other 
+
+dev vpc is at one place and prod vpc is at another place 
+if suppose you want to take some data from prod environment for testing in the dev environment then VPCS are not connected to eash other 
+
+by default vpc are not conected with each other 
+
+
+if suppose, vendors has different network and we have different network and you want to send some data to them then we have to do some configuration between both networks 
+
+VPC peering:
+------------
+-> we use VPC peering for allowing data
+-> VPC peering can establish between two VPC 
+-> But on one condition, VPC CIDR should be different, they should not overlap 
+
+-> If you want to connect between two VPC, both the CIDR should not get overlap, becoz it gets confused what it has to use 
+
+-> Suppose VPC-1 has CIDR--> 10.0.1.123 and VPC-2 has CIDR --> 10.0.1.123. If in case both are same they allocating another CIDR gets confuse whether it has to assign for VPC-1 or VPC-2 
+
+Here, in our case -> expense-dev is requesting for connection to default VPC
+-> expense-dev is a requestor and default VPC is an acceptor 
+
+
+Open AWS -> open peering connection -> create peering connection -> enter the name(expense-dev-default)-> requestor as "expense-dev" -> acceptor as "default" -> click on peering connection 
+
+click on expense-dev-default and select actions -> accept request 
+
+if suppose we requested for different account then we have to ask them to accept the request 
+
+It is not enouogh to accept the request... with whatever we want to build connection, you have to establish the routes with that 
+
+same account
+------------
+same region and different VPC can peer
+different region and different VPC can peer 
+
+2 accounts:
+-----------
+different account same region 
+
+
+
+peering
+-------
+-> so, one VPC can connect to the no.of other VPCs 
+
+Ask user whether he wants VPC peering or not... if he say yes our module will connect with default VPC in the same region 
+
+persons = ["ramesh","suresh","raheem","robert"]
+
+persons[1]
+
