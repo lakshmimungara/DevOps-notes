@@ -1,0 +1,105 @@
+Day-33 session-33(27/09/2024)
+----------------------------
+
+Like previous, we are not using allow-all secuirty permissions 
+
+-> security group concept is very much important - remember 
+
+-> suppose, we didn't get any output, then we have to expose the ouputs and store them 
+
+-> why we are writting everything in a different folder?  
+Becoz, if we put all the files in terraform repo, whenever you change anything then terraform will refreshes everything which are there in terraform files 
+-> Then it is a time taking process when API calls get increased and AWS restricts them. so, too many calls should not be there 
+-> maintenance is hard when we keep all in one folder 
+
+Mysql 
+-----
+if mysql wants to connect with backend it has to allow port number 3306 
+
+port number: 3306 
+And whoever accessing the mysql server that ip address has to give --> IP: backend private IP 
+
+what if stooped and started again the backend private ip?
+A) private IP will not change after restart, but public ip may change after restart 
+-> private IP may not same after termination and creation 
+
+
+security group - imp to remember 
+--------------------------------
+Mysql security group allow backend security group
+port no: 3306 
+we will not mention ingress group in mysql security group. we mention with source 
+source: backend security group --> mysql will allow connection from instances which are attached to backend security group
+-> With whatever we attached the backend SG, then mysql allows all the connections from them
+
+-> whenever you add any new module then you have to initialize the terraform --> terraform init 
+
+-> now, backend servers access from frontend 
+
+backend --> frontend 
+port number: 8080 
+source: frontend security group 
+
+
+frontend --> public --> 0.0.0.0/0
+port number: 80 
+CIDR
+
+It is not secure to connect the office network from home directly. so, for that purpose we have, 
+
+1. bastion/jump server 
+-> we will keep this bastion server in public server 
+-> we will connect to bastion and then we can able to connect to backend or database or frontend 
+-> so, this is called jump server 
+-> It's like a ec2 instance, it is in expense network so, it can connect to any server 
+-> we have to allow security group for bastion also 
+-> employess will connect to bastion to access the servers 
+
+
+-> where frontend is having public, direct connection from home is not possible due to secure issues. so, first it connects to bastion server and then to frontend
+
+2. VPN 
+
+Till now we have used open source modules with AWS contribution -> where terraform team developed 
+advatanges of open source module:
+----------------------------------
+1. we no need to develop the module 
+
+disadvantages of open source modules:
+--------------------------------------
+1. we need to depend on community 
+2. we dont have freedom to do changes if required 
+
+custom modules:
+----------------
+advantage:
+----------
+1. we have freedom to develop whatever we want 
+
+disavanatge:
+------------
+we have to develop everything 
+
+we will get the SG to the bastion through SSM paramter store 
+-> first, SG has to put content in parameter store and then we can use SG fro bastion 
+
+why functions?
+--------------
+To alter the data 
+
+
+-> we need anisble also to configure 
+-> Through ansible we can connect to backend, frontend, and backend 
+-> ansible is also need security group 
+-> If ansible wants to connect to backend, frontend, database it should works on SSH protocol - port number 22 
+
+-> if ansible wants to connect to database, backend, frontend - it requires one file called inventory file 
+
+
+ec2 instance user data 
+----------------------
+when instance created, AWS will run tis user instructions with root access automatically
+
+we can integrate the ansible and terraform with user data 
+
+

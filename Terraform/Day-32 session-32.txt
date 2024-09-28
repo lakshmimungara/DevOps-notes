@@ -1,0 +1,94 @@
+Day-32 session-32(26/09/2024)
+------------------------------
+Recap:
+------
+VPC module 
+-> In AWS account -> we created our own VPC 
+-> In two different availability zones 
+-> we created a subnets - public, private and database 
+-> we created internet gateway 
+-> we created route tables for public, private and database 
+-> we have destination 0.0.0.0/0 for Internet gateway and target is to local 10.0.0.0/16 --> this is for public subnets 
+-> we have destination 0.0.0.0/0 for NAt gateway and target is to local 10.0.0.0/16 --> this is for private subnets 
+
+-> we have destination 0.0.0.0/0 for NAT gateway and target is to local 10.0.0.0/16 --> this is for database subnets 
+
+-> we connected to another VPC by using peering connection 
+-> So for this, destination is 172.31.0.0/1 with peering connection in public, private and database 
+-> In another default VPC, we have public subnet with local 172.31.0.0/1 and peering 10.0.0.0/16 and internet gatway access 0.0.0.0/0 for public route table
+
+
+Now, in today's class
+---------------------
+-> In any new project, first we need to create VPC network and then firewalls 
+-> And for that we need to create security group 
+
+How to use git terraform module?
+---------------------------------
+-> Source has to target the git 
+-> we can maintain different branches as well
+-> when we have done any changes in module, in vpc_test first we have to target the other branch after that we test it and complete 
+
+source = "git::<url>?ref=main"
+By using this, it pulls the module from git directly no need to be in workspace
+
+-> after completion of module, that we will keep in git and use it 
+
+-> Till now, we used default VPC and default security groups by allowing all 
+
+-> But in companies, in projects we will not allow everything becoz of secuirty firewall 
+
+-> we should maintain VPC, SG, MySQL, Backend, frontend in a seperate repos 
+
+
+-> Now, I am going to create different folders in one repo and we can read them as seperate repos 
+
+-> whenever we do any changes in module first we should reconfigure that module 
+
+-> After completion of module we keep in git and use it 
+
+-> name for security group should be like this --> expense-dev-mysql,expense-dev-private and expense-dev-public 
+
+seperate repos for each - expense-vpc, expense-sg, expense-mysql etc 
+
+-> centralized - all computers are connecting to git 
+-> centralize place - where we can get everything 
+-> Here, somethinmg like SSM parameter store 
+
+-> for example: amazon is the mediator/point of contact between buyer and seller 
+-> Likewise, VPC keeps all the details which are required by customers in SSM store 
+-> Sg takes from SSM store 
+-> SG places all the details required for public are placed in SSM store and backend takes from ssm store 
+-> SSM parameter store is like a key-value 
+
+
+ssm parameter store
+--------------------
+-> which stores key-value 
+It should start with forword slash --> /expense/dev.vpc_id 
+
+Open AWS -> search for system manager -> go to parameter store -> enter the name(should starts with slash(/)) - /expense/dev/vpc_id -> store the value - vpc-1234 -> click on create parameter 
+
+expense-vpc 
+expense-sg 
+expense-mysql 
+
+your repo:
+-----------
+module "your_name"{
+		args_as_per_module_definition = your_value 
+		enable_dns_hostnames = var.dns_hostnames 
+}
+
+variables.tf 
+------------
+variable "dns_hostnames"{
+default = false 
+}
+
+
+outputs.tf:
+----------
+module.your_name.<output-paramater-name>		
+modules 
+1. custom module2. open source modules
