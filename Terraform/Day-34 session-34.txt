@@ -1,0 +1,200 @@
+Day-34 session-34(30/09/2024)
+-----------------------------
+Recap:
+-------
+we have learnt all the terraform concepts and created our expense project at basic level 
+
+what we did in this expense-project 
+---------------------------------------
+1. we created one dedicated VPC and used in expense project
+2.  created security groups without allowing everything 
+3. After creating instances using terraform we have connected and configured our instances with the Ansible 
+4. we are able to create records and access our expense-project 
+
+Now in today's class:
+--------------------
+
+stateful vs stateless 
+----------------------
+stateful --> which has state, i.e data -> It has the data which is crucial when if server crashes 
+stateless --> which don't have state -> it doesn't have any data which it has code to connect the database 
+
+
+database --> stateful, it keeps track of the data 
+backend, frontend  --> stateless -> which doesn't have any data 
+Here, If in case backend wants to created,update,delete, read. it doesn't have any own database. backend is completely depends on database. 
+
+-> If database server crashes and we lost our data -> then it may be problematic -> whatever the transacations are in database are always crucial
+-> If in case, database or frontend crashes then it is not that much problematic and we may not loss any data -> if data lost also we can restore it from database server 
+
+
+Database server 
+-----------------
+-> we have to take the daily backup 
+-> It is not that much easy to restore the stateful  
+-> whatever we have taken the backup and check if it is restoring or not 
+-> we have to take the backup of the data -> hourly, daily, weekly backups 
+restore test 
+-. and we have to do data replication 
+
+what is data replication? 
+-------------------------
+for eg: 
+--------
+DB1 is connected to application 
+DB2 is not connected to application, but replicate data from DB1 
+
+for eg., 
+--------
+Hyd is in DB1 and Mumbai is in DB2
+-> If in case, any natural disaster occurs in DB1, then the database replicates to DB2 which is in mumbai location -> we access from mumbai region 
+-> storage increament -> we have to check the storage incremenmt, if database storage is full then we have to increase the storage for database
+
+-> load balancing -> if in case, database has only one server, many user are connecting then database may not work perfectly  -> Then what we have to do? -> we have to created multiple databases servers and we have perform load balancing
+
+-> upgrades 
+
+-> These are all crucial operations. These can be not possible by manually 
+-> These all responsibilities are all performed by stateful applications 
+-> These are all no t possible by manually. 
+So, we are using RDS
+RDS --> everything is handled by load balancing, auto storage increment, backups/snapchats etc -> These all are take care by cloud providers 
+Databases has seperate team, where they take care of roles and responsibilities 
+RDS(Relational Database system ) -> where we create database 
+
+Now we going to create new repo -> expense-infra-dev 
+Clone it in gitbash 
+create 10-vpc and 20-sg modules and stuff 
+In this iteration our main goal is to auto-scale the application based on traffic increase and decrease and setting our application in a proper way 
+
+Now, manual creation of database in RDS 
+1. open RDS in AWS 
+2. databases -> click on create databases 
+3. engine type -> select MySQL 
+4. version --> 8.0.39 (our wish) -> enable RDS extended support may cost consuming 
+5. templates -> free tier 
+6. Database name -> expense 
+7. credentials -> username -> root and password -> ExpenseApp1
+8. DB instance_type -> db.t3.micro 
+9. Storage type -> General purpose SSD and allocated storage 20 
+10. storage autoscaling -> upto 1000 it maximizes the storage 
+11. connectivity -> select don't connect now to EC2 instances 
+12. VPC -> expense-dev 
+13. DB subnet group -> expense-dev (it can keep in any DB subnet either DB1 or DB2)
+14. Public access -> it is usually "No" but practice purpose we are using "yes" -> If it is yes also, we can restrict in security group  
+15. existing security group -> select your security group ->expense-dev-mysql 
+16. Availability zone -> us-east-1a 
+17. 3306 port number -> default 
+18. Don't click on enable enhanced monitoring. becoz it charges cost 
+19. In database options -> Initial database name -> transactions (it creates the transactions schema)
+20. Don't click on enable automated backups becoz it charges the cost 
+21. click on enable encryption and select all the logs(audit log, error log, general log, and slow query log)
+22. Enable auto minor version upgrade -> eg: 8.0.35 --> 8.0.36 -> This we can update, we don't get any problem -> not mandatory ->  but we cannot upgrade from 8.0.35 to 9.0 
+23. maintenance window -> No preference 
+24. click on database 
+
+
+[If any changes in modules, we have to inititiate with upgrade and it takes the new features after updating the modules --> terraform init -upgrade ] 
+
+-> now we are oing create the same process with terraform by using RDS open source module 
+-> we connect to database through bastion 
+
+mysql.daws81s.online --> points to end point of database in RDS
+
+we will get connectivity end-point after creation of database 
+mysql-dev.daws81s.fun --> expense.cbuo0qgwc8jq.us-east-1.rds.amazonaws.com -> for dev environment 
+mysql-prod.daws81s.fun --> expense.cbuo0qgwc8jq.us-east-1.rds.amazonaws.com -> for prod environment 
+
+-> whenver we are in cloud, nobody creates the Ec2 instance, just we create and use the RDS sevice 
+
+snapshot/backup --> destroy --> final snapshot(VPC)
+-> snapshot is nothing but backup -> it takes the final snapshot and attches to the VPC
+-> It is attaching to VPC, so we cannot delete the VPC 
+-> when snapshot is created, it dircetly attches to VPC. if it is attached we cannot delete the VPC 
+
+RDS - interview question
+------------------------
+If you get any question related to RDS, you shouln't say It is in ec2 instances we have dedicated RDS highly available instances. we have automatic monitor enabled, automatic storage enabled, automatic snapchats are also enabled, auto-minor version is also enabled 
+
+
+Load balancing and auto scaling 
+--------------------------------
+-> Delivery manager gets a request from client 
+-> he gets some work -> That work assigned to UI work --> and then UI team lead assigns to team members 
+-> Backend work --> backend team lead --> team member 
+They will check, who is available to work, team lead will assign 
+
+Comparision:
+-------------
+
+team --> target group 
+team lead --> load balancer 
+listener and based on some rules --> UI team lead is listening for UI work, backend team lead is lstening for backend work 
+who is available --> health check -> before assigning server we will check the health of the server whether they are working or not 
+members -> servers 
+for eg: backend port number - 8080 and for frontend - 80 -> servers are listening on these port 
+if backend server is running we can hit that on 8080, if not running we can't hit
+
+
+1. create two servers (ec2-instances) -> servers are nothing but team members -> name it as nginx 
+2. AMI - redhat 
+3. instance_type - t3.micro 
+4. without key pair 
+5. Give the deafult security group name -> allow-everything
+6. user_data 
+	#!/bin/bash
+	dnf install nginx -y 
+	rm -rf /usr/share/nginx/html/index.html 
+	echo "I am from nginx server" > /usr/share/nginx/html/index.html 
+	systemctl start nginx
+	
+
+1. Load balancing -> target group 
+2. click on create target group 
+3. select the instances 
+4. target group name -> nginx and port number - 80 
+5. select default VPC 
+6. health checks - HTTP and health check path -> /  (eg.,http://3.94.106.200/ --> 2XX -> success response )
+7. health threshold - if two requests continuosly is in success rate then we consider as Healthy threshold and it is success --> 2
+8. if two requests continuosly is in failure rate then we consider as Unhealthy threshold and it is failure --> 2 
+9. Timeout --> It has to response withinn seconds -> 5 
+10. Interval -> for every 10 sec load balancer will check if it is healthy or not
+11. success code -> 200-299
+12. click on next 
+13. select the available instances -> nginx and port 80
+14. click on include as pending below 
+15.  click on target group 
+
+-> this is like forming a team with the name nginx and added two team members 
+-> we have done health check configuration 
+
+So, now we need one team leader 
+
+
+
+Now we are assiging team leader to the team 
+
+1. load balancing -> load balancer 
+2. click on application load balancer 
+3. load balancer name -> nginx 
+4. It has atleast two availablility zones -> us-east-1a and us-east-1b 
+5. select security group -> allow-all 
+6. Listerner port number is 80 and target group is nginx 
+7. click on create load balancer 
+
+How it is getting response?
+----------------------------
+First Load balancer --> It will go to listener -> port number: 80 -> default rule is to send nginx deirectly -> suppose we have two instances -> load balancer will check which instance is healthy -> if two instances are in healthy state it select randomly 1 server 
+
+Auto scaling:
+------------
+for eg., 
+two members -> 16 hrs work 
+if in case they are assigned for 30 hrs work -> exhausted and no proper results 
+-> then reach out to HR and ask for recruting a new member --> add them to our team 
+
+Job description -> launch template(options to create server) --> place them inside target group 
+
+If CPU utilization increases 75% -> then we have to assign the work only for 6 hrs 
+
+-> If no.of requesting are increased then auto-scaling is used 
