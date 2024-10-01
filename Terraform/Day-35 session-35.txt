@@ -1,0 +1,102 @@
+Day-35 session-35(01/10/2024)
+------------------------------
+Recap:
+------
+-> we have created VPC, Sg 
+-> we have created bastion server in frontend subnet and so we will host to bastion server first and from that we can connect to private instances  
+-> It is hard to maintain the RDS in ec2 instances for upgrades, storage auto-scaling, high availability and data replication -> It is hard to maintain these all by manually -> for this we have used RDS in AWS 
+
+-> we have discussed about load balancer, load balancer will provide the load to instances based on there availability and health checks 
+-> we will keep all the instances in a target group where we have a listeners and rules 
+
+Now in today's class:
+----------------------
+we have two types of infrastrures
+
+1. project infra -> it is compared as basement of the house -> rare changes 
+2. Application infra  -> Rooms and walls -> yes, they can change 
+
+
+Project infra:
+--------------
+VPC -> it will not change frequently 
+security groups -> SG may not change only the rules might change
+Bastion host -> no frequent changes -> it is static 
+Databases -> No frequent changes -> rarely after years it will get updated 
+Load balancer -> no frequent changes 
+
+-> These all are mandatory to run any application and these all are comes under project infra 
+
+Application infra 
+-----------------
+ec2 instances 
+target groups 
+
+These are all may change when version of packages might change in application infra 
+
+In AWS, the first request we will get to load balancer -> 80 for HTTP and 443 for HTTPS
+-> from load balancer to frontend servers - with port 80 
+-> from frontend server to backend load balancer 
+-> and then backend server only accepts from backend load balancer with port 8080
+-> from backend server to RDS mysql server with 3306 port number 
+
+-> bastion server connects to frontend server with ports 22 and 80 
+-> bastion server connects to backend load balancer with port 80 
+-> bastion server connects to backend server with ports with 8080 and 22
+-> bastion server connects to backend server with port 3306
+-> bastion server is hosted by employees 
+
+
+backend-dev.daws81s.online --> LB 
+backend-dev.daws81s.online:8080
+
+Load balancer:
+--------------
+LB -> distributing the load to taret group -> team lead
+TG -> A team of members -> A group of servers 
+server -> Team member -> server 
+Listener -> Team lead phone number -> port LB listening to 
+Rules -> we have two conditions in rules 
+1. Host path and context path 
+
+Host path and context path
+---------------------------
+-> suppose, Bussiness analyst gets work from client 
+-> BA should analyse the work and gives to Architect 
+-> And architect assigns to backend team -> backend LB -> Backend Team lead 
+-> frontend -> frontend LB -> frontend team lead 
+database -> database team lead 
+
+host path
+----------
+backend.daws81s.fun -> backend LB 
+frontend.daws81s.fun -> frontend lB 
+
+classic LB 
+application LB --> layer 7 
+network LB 
+
+m.facebook.com --> mobile site 
+facebook.com --> web site 
+
+context path 
+-------------
+daws81s.online/backend 
+daws81s.online/frontend 
+
+app ALB --> app tier LB 
+web ALB --> web tier LB 
+
+mysql.dev.daws81s.fun -> points to end point in RDS 
+
+Open Route53 
+enter mysql-dev and select CNAME 
+name is fixed but end point might change 
+
+app-dev.daws81s.online -> App ALB 
+web-dev.daws81s.online -> web ALB 
+
+app-dev.daws81s.online
+----------------------
+app-dev.daws81s.online -> it will respond -> default response
+backend.app-dev.daws81s.fun --> forward this request to backend TG
