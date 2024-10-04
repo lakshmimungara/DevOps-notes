@@ -1,0 +1,134 @@
+Day-36 session-36(03/10/2024)
+-----------------------------
+Backend servers has no public ip address so we can connect it through bastion 
+
+How can we connect backend server directly from our browser or local machine?
+A) we can connect to backend servers directly through VPN from our local machine 
+
+we have already about forward proxy and reverse proxy -> VPN comes under forward proxy 
+
+VPN is a forward proxy 
+VPN is used to for securing purpose for companies 
+VPN changes the geolocation 
+we can see the OTT platforms by using VPN 
+for eg.,
+--------
+user is connecting from his laptop --> to VPN --> can access secure servers and company can monitor our traffic 
+
+for supppose,
+--------------
+If I have created VPN in public subnet, then it indicates that we are in public subnet
+From VPN we can access backend load balancer and backend servers 
+ 
+Generally, VPN has seperate team. They will take of the all the things 
+
+Go to AWS -> Launch instance 
+1. give the name - vpn 
+2. Search for AMI image - openVPN Access server community Image-f 
+AMI -> open VPN server is already installed and configured 
+launch this ec2 and we need to little configuration 
+AMI image name = OpenVPN Access server community Image-fe8020db-*
+
+backend ALB port number - 80 
+backend server port number - 8080, 22 
+If we want to access from local laptop -> 22, 443, 943,1194 -> here 22 is for SSH access and remaining are VPN port numbers 
+load balancer is accepting connection from vpn with port number 22, 443, 1194, 943  
+
+we should allow port numbers 8080 and 22 for backend server connecting to VPN 
+
+VPN public -> 993 and 1194 
+load balancer is accepting connection from vpn with port number 80 
+backend is accepting connection from vpn with port number 22
+backend server is accepting connection from vpn with port number 8080 
+
+Before we are using our own AMI, but now its not our AMI so we have to generate key_pair 
+first we have to create key for openvpn - mandatory 
+ssh-keygen -f openvpn 
+
+Here, I have to keep the private key and public key has to give to server 
+OpenVPN is a popular vpn software and cisco is used in companies and openvpn is used in small startup companies 
+
+
+ssh -i ~/.ssh/openvpn openvpnas@public-ip 
+
+https://107.20.105.128:943/admin
+username - openvpn and password - Admin@123
+
+1. Open https://107.20.105.128:943/admin and enter username as openvpn and password as Admin@123
+2. click on Agree 
+3. Click on VPN settings 
+a) should client internet traffic be route through the VPN? - enable it -> Yes 
+b) In DNS settings -> enable have clients use sepcific DNS servers -> yes 
+give the primary DNS server - 8.8.8.8
+and secondary DHS server - 8.8.4.4 
+-> Save the settings 
+-> Update running server 
+
+Most of the companies have VPNs, without VPNs we cannot do anything 
+Now, we have to connect to the vpn server. so, for this we have a client called openvpn client 
+
+download the openvpn connect 
+https://35.170.248.89:943
+openvpn, Admin@123 
+
+Just like we are connecting to ec2 instance by using putty and gitbash
+Likewise, we are connecting to VPN through openVPN client 
+
+1. Go to chrome 
+2. search for OpenVPN client download 
+3. download for windows and install it 
+
+VPN SG, VPN SG rules 
+create key pair for VPN accessVPN instance with open VPN 
+Openvpnas is the user name 
+configure with default options 
+https://35.170.248.89:943/admin
+openvpn, Admin@123
+
+download the openvpn connect 
+https://35.170.248.89:943
+openvpn, Admin@123
+
+
+This is first approach
+---------------------
+next backend 
+---------------
+1. create ec2 instance 
+2. configure with backend
+
+if there is a new version 
+--------------------------
+I can connect all the instances using ansible and run the playbook 
+
+Then playbook deploy the server 
+stop the server 
+remove old code 
+download new code 
+restart the server 
+
+if there is traffic increase
+----------------------------
+1. create ec2 instance 
+2. configure with backend 
+
+Everytime, creating new server and configuring with backend takes max 5 mins of time and we have downtime also 
+
+so, we have another approach; 
+------------------------------
+1. create ec2 instance 
+2. configure using ansible 
+3. stop the instance 
+4. take AMI --> launch template 
+5. launch it using autoscaling 
+
+when traffic increase autoscaling takes care everything 
+use AMI to add the servers 
+
+After all this, we have to create target group 
+ALB rules 
+
+
+
+
+ 
