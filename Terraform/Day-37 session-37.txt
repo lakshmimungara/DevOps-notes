@@ -1,0 +1,130 @@
+Day-37 session-37(07/10/2024)
+-----------------------------
+Recap:
+-------
+Bastion and VPN are almost same but the only difference is for bastion we have to connect to server and access from inside the server. so, we cannot vizualize everything is hard 
+So, the advantage of VPN is, if in case we connected vpn to our laptop then we can check everything without connecting to the server 
+
+security groups for vpn and bastion are almost same 
+
+if there is any new version of application then it has to go to deployment 
+
+1st approach is, 
+1. create ec2 instance
+2. configure with backend 
+
+it means, 
+stop the server 
+remove the old code 
+download new code 
+restart the server
+
+Another approach is, 
+1. create ec2 instance 
+2. configure with backend 
+
+it means, 
+create ec2 instance 
+configure using ansible 
+stop the instance 
+take AMI -> launch template
+launch it using autoscaling
+-> this can be don without any down time 
+
+Now in today's class
+--------------------
+
+1. create ec2 instance 
+2. configure it using ansible 
+3. stop the server 
+4. take AMI --> with new version 
+-> we cannot take AMI image from running instance. so first stop the server and then take AMI 
+4. delete the instance 
+5. create a launch templete 
+	launch templete consists of ami, network, sg etc 
+6. create target group 
+-> input for autoscaling is launch templete
+7. create ASG using launch templete and place them in TG 
+8. create rule in load balancer 
+
+
+we have a seperate team for openvpnv administrations 
+
+ssh -i ~/.ssh/openvpn openvpnas@ip address 
+username: openvpn 
+password: Admin@123
+
+whatever you browser that can be findout through the VPN 
+-> whatever you do in your laptops can be through the VPN 
+-> So, likewise companies can monitor the employees laptops beconz of VPN 
+
+Actually, ansible follows push architecture but after some time it included pull architecture also 
+
+create ansible server and provide backend ec2 instance anisble can connect to it 
+
+-> Ansible server downloads the playbooks from github and runs against the node 
+-> ansible server pushes to the node by using ip address 
+-> ansible server - wherever ansible got installed 
+-> ansible is a light weight package 
+-> install ansible pull ansible plabooks and run locally from github 
+
+How can you connect to the ec2-server from terraform?
+--------------------------------------
+It is possible by using, Provisioners
+They are two types
+1. local-exec: wherever terraform runs is called local
+2. remote-exec: inside ec2 server remote 
+
+-> so, we use remote provisioner and we need to connect to the ansible server. so, that commands whatever we are giving to ansible runs inside the server 	
+-> I need to use remote provisioners, connection block 
+
+what are null resource and trigger --> imp for interviews
+--------------------------
+null resource -> it will not do anything, means it won't create any resource. but useful for connecting ec2 instance through provisioners 
+-> It implements the standard resource lifecycle but takes no further action 
+-> null resource can be used for the provisioners purpose 
+-> whenever we create ec2 instance, to connect to that instance we take null resource 
+
+Trigger: 
+--------
+-> whenever instance id changes then it has to trigger 
+-> instance id is changed, it means a new instance is created 
+
+Difference between user_data and provisioners:
+-----------------------------------
+In user_data, we doesn't know if it is failed or not 
+But, in case of provisioners, it directly shows you the failure and success 
+
+-> we cannot connect to instance when we are not connected to vpn
+
+terraform -> shell -> ansible 
+
+if you have existing folder how can you make it as git repo
+--------------------------------------
+we need to initialize git --> git init 
+git branch -M main 
+git remote add origin <HTTPS url>
+git add .;git commit -m "msg";git push origin main 
+
+-> provisioner get run only when the time of creation of instance not at the time of updation 
+-> Command to run the provisioner compulsory --> terraform taint 
+-> terraform taint command is used for forcing to recreate the resource 
+
+-> terraform taint null_resource.backend 
+
+-> here, taint means painting 
+-> once it is marked as taint then terraform makes them to re-run 
+ 
+This is the command which is used to terminate no.of instances
+----------------------------------------
+aws ec2 terminate-instances --instance-ids instance-id1 
+-> this commands runs on local-exec 
+
+
+command to destroy everything
+-----------------------------
+for i in $(ls -dr */) ; do echo ${i%/} ; cd ${i%/}; terraform destroy -auto-approve; cd ..; done 
+
+command to apply everything
+-----------------------------
+for i in $(ls -d */) ; do echo ${i%/} ; cd ${i%/}; terraform apply -auto-approve; cd ..; done 
