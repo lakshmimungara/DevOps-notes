@@ -1,0 +1,120 @@
+Day-38 session-38(08/10/2024)
+-----------------------------
+Recap 
+-------
+1. create ec2 
+2. configure ec2 using ansible and provisioner 
+  we used remote provisioner 
+  variables in terraform --> shell script --> ansible-pull 
+3. stopped ec2 server 
+4. take AMI 
+5. delete the instance 
+
+Now in today's class 
+----------------------
+now we have AMI, Load balancer, listener, default Load balancer 
+
+whatever request we will get that has to sent to target group 
+where team is load balancer and team members are target group 
+
+Steps to create target group
+-----------------------------
+1. Go to target group 
+2. create target group 
+3. click on instances 
+4. target group name - test 
+5. port number - 8080 
+6. Health check protocol - HTTP 
+7. path - /health 
+8. clilck next 
+9. create target group 
+
+Target group 
+------------
+:8080/health 
+autoscaling input -> launch template 
+
+command to run all the folders at once:
+----------------------------------------
+for i in 10-vpc 20-sg 30-bastion 40-rds 50-app-alb 60-vpn 70-backend; do cd $i ; terraform apply -auto-approve ; cd .. ; done 
+
+healthy threshold = 2  -> continuously success health is 2 
+unhealthy threshold = 2 
+interval = 5 
+matcher = "200-299"
+path = "/health" 
+port = 8080 
+protocol = "HTTP"
+timeout = 4 
+
+-> After the target group, we have to do autoscaling 
+-> input for autoscaling is launch template 
+eg: launch template is just like a job description 
+
+creation of launch template 
+----------------------------
+Below the Instances
+click on launch templates
+1. click on create launch template 
+name - backend
+2. AMI  - devops-practice - redhat 
+3. instance typ3 - t3.micro 
+4. no key pair 
+5. subnet - expense-dev-private-us-east-1a 
+6. security group - expense-dev-backend 
+7. select instance_shoutdown_behaviour - terminate 
+8. click on create launch the template 
+
+-> launch template is nothing but requirements of any instances eg; hard disk, subnet, instance_type, security group, shutdown_bahaviour etc 
+
+
+-> Plan: 7 to add, 0 to change, 3 to destroy.
+Here, everytime it repeats the same process again from the start if we changed any small change 
+
+For deletion purpose we use taint 
+-----------------------------------
+terraform taint 
+
+for running specific resource we use target 
+--------------------------------------------
+terraform apply -target=<resource>.<resource_name> 
+
+eg: terraform apply -target=aws_launch_template.backend 
+
+some tools have some corner cases. likewise target is a corner case it just prints everything again 
+-> This can be a minor defect in terraform 
+
+Note: Using target is not secure 
+
+Brief difference between remote-exec and local-exec 
+-----------------------------------------
+remote-exec: connecting to server and executing inside server and whatever we are doing inside the server is remote 
+
+local-exec: without connecting to server and doing outside the server is local 
+
+Autoscaling:
+--------------
+
+creation of autoscaling 
+-------------------------
+1. click on create Auto scaling group 
+2. group name - backend 
+3. select launch template -> whatever we created -> expense-dev-backend 
+4. version - default 
+5. click on next 
+6. select created vpc  
+7. select availability zone and subnet 
+8. click on next 
+9. select no load balancer 
+10. health check grace period - 60 seconds 
+11. click on next 
+12. desired capacity - 1 and min desired capacity - 1 and max desired capacity - 10 
+13. select target tracking scaling policy 
+14. average target value - 75 
+15. Instance warmup - 60 seconds 
+16. click on next and create autoscaling group 
+
+
+We have to create rule 
+----------------------
+backend.app-dev.daws81s.fun --> forward this backend target group 
