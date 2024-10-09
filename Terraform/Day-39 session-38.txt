@@ -1,0 +1,88 @@
+Day-39 session-39(09/10/204)
+-------------------------------
+Recap 
+-----
+created ec2 instance 
+configuring with ansible 
+stopped the instance 
+taking AMI 
+delete the instance 
+target group 
+launch template 
+Autoscaling group 
+autoscaling policy 
+
+Now in today's class 
+--------------------
+we have to create listener rule for ALB 
+
+first traffic comes to R53 -> ALb -> listener -> Rule -> target group -> health check -> instance 
+
+if you mark any resource as tainted, then terraform will recreate that resource 
+
+target: If you want specifical create or destroy a particular resource 
+
+host-based rules
+-----------------
+backend.app-dev.daws81s.online 
+catalogue.app-dev.daws81s.online 
+user.app-dev.daws81s.online 
+shipping.app-dev.daws81s.online 
+
+Instance_refresh - if the version got updated then we have rolling update strategy 
+
+Rolling update:
+----------------
+suppose 4 instances are running -> And in this 50% of instances should be in up -> like in 4, 2 must be up 
+
+new version has to come and then we have two options 
+
+1. stop all the backend services in all instances and update the application using ansible 
+2. create one new instance using new version, once this is up, delete one old instance 
+	create second instance and delete one more old instance
+	create third instance and delete one more old instance
+	create fourth instance and delete one more old instance
+-> this is a zero downtime approach 
+
+-> if launch template is changed which indicates we got a new version 
+-> when a new version is come up then slowly we have to update the autoscaling 
+
+-> whenever we get the new instances, launch tenplate gets update and if launch template gets updated then it refresh the autoscaling 
+
+we will get the domain -> backend.app-dev.daws81s.fun and it hits the load balancer -> In listeners and rule we are using 80 we have two rules and click on that -> In that we will get request to backend.app-dev.daws81s.fun and it forwards to Target group  -> In taregt group we have two taregt groups registered and they are healthy -> target group fowards the request to any of the instance and we will get the response 
+
+-> The backend part is finished and now we are moving to frontend part 
+-> we need load balancer for the frontend part 
+-> frontend is public so we need to use 443 port number and it is secure 
+-> for secured ports have certificates and it mandatorily have a domain 
+
+
+https/SSL/TLS -> certificates 
+for that we need domain 
+https - hypertext transfer protocol secure 
+SSL -> secure socket layer 
+TLS -> transport layer security 
+
+-> for publishing certifications some companies are there 
+-> They will check the authorization of your domain 
+
+-> certficate provider -> we have to ask them for certificates and they will validate our domain 
+-> After completion of validation they will provide certificate 
+
+-> Likewise, we have one service in AWS 
+1. Go to AWS and search for Aws certificate manager 
+2. request certificate 
+3. click on request a public certificate 
+4. click on next 
+5. Fully qualified domain name -> *.daws81s.fun we can add another name of this certificate -> expense.app-dev.daws81s.fun
+6. validation method -> DNS validation 
+7. key algorithm -> RSA 2048 
+8. click on request 
+9. click view certificate 
+10. create a record in route53 
+11. create records 
+
+
+we have amazon certificate manager in AWS -> which is certificate provider 
+
+	
