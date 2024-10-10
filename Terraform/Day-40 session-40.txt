@@ -1,0 +1,88 @@
+Day-40 session-40(10/10/2024)
+-----------------------------
+Recap 
+------
+1. create ec2 instance 
+2. configure it 
+	you should have playbooks ready 
+	we used remote provisioner 
+	terraform variables --> shell -> ansible 
+	ansible-pull approach 
+3. stop ec2 instance
+4. taking AMI image 
+5. delete the instance 
+6. create target group 
+7. create launch template 
+8. autoscaling -> launch template target group 
+9. autoscaling policy 
+10. ALB rules 
+
+flow of traffic from route53 to instance:
+-----------------------------------------
+R53 -> ALB -> listener(80,443)-> Rule(host based routing)-> target group -> instance 
+
+To get ACM -> we should have domain 
+
+first, we should request for the certificate 
+create records in domaain 
+validation 
+
+
+Now in today's class:
+-----------------------
+Load balancer and autscaling are the major concepts for taking care of application from down, application is in highly available and handles the traffic 
+
+First, our request reaches from ALB to server 
+504 gateway timeout -> it means from ALB to server not reaching 
+
+backend.app-dev.daws81s.fun --> App ALB 
+expense-dev.daws81s.fun --> web alb 
+mysql-dev.daws81s.fun 
+
+
+CDN -> cloudfront 
+-----------------
+for eg: 
+we watch different otts platforms and shows and if they are in different countries 
+for suppose, it is in US and we are watching it from India. It takes so much of time from US to india 
+
+Generally, we have a caching concept 
+for eg; Previuosly ISP providers who are in local,they promoted for faster download of 1000 movies.  -> they have caching servers 
+For suppose, if user wants to download any movie -> first it hits the ISP caching servers -> It checks and placed in Torrents 
+-> If one person started downloading movie it comes to ISP caching server then another person can easily download it 
+-> Latency is low from less distance and high for far distance
+-> This is all content delivery 
+
+-> Amazon created content delivery network
+-> they created caching servers in worldwide 
+-> they deployed caching servers in the edge locaions 
+
+-> First, content is all static 
+-> whatever we browse the html images has larger memory 
+-> It will take time from other countries to the user 
+-> So, they will keep all the static content in the edge locations 
+-> So, image can load fast
+-> This is called content delivery network 
+
+-> Amazon has edge servers across the global, first contents saved into edge servers and users can download it from there 
+
+-> It has origin -> where the original content exist 
+-> cache -> static content (css,js, images)
+
+Go to AWS 
+1. open cloud front 
+2. create cloudfront distribution 
+3. origin domain -> expense-dev.daws81s.fun -> mandatory 
+4. protocol -> HTTPS 
+5. name -> expense-dev.daws81s.fun
+6. default cache behaviour 
+	compress objects automatically -> yes 
+	Viwers -> redirect HTTP to HTTPS 
+	Allowed HTTP methods -> GET,HEAD,OPTIONS,PUT,PATCH,DELETE
+7. web application firewall -> do not enable security protections 
+8. price class -> Use all edge locations 
+9. alternate domain name -> expense-cdn.daws81s.fun 
+10. click on create cloudfront 
+
+
+Invalidation: we have released new version, till now whatever cache it has telling it t release it 
