@@ -1,0 +1,105 @@
+Day-41 session-41(11/10/2024)
+---------------------------------
+CDN
+
+-> cloudfront is a content delivery network service of amazon. AWS have edge locations edge locations to cache the content across the globe. we can make use of this service to reduce latency to our customers 
+
+Origin -> where is your source. It can s3, ALB, API gateway etc 
+Cache bahaviour -> How and what you want to cache 
+Invalidations -> when there is a update, you can create invalidations so that edge location pull the content newly 
+
+
+1. open cloud front 
+2. create cloudfront distribution 
+3. origin domain -> expense-dev.daws81s.fun -> mandatory 
+4. protocol -> HTTPS 
+5. name -> expense-dev.daws81s.fun
+6. default cache behaviour 
+
+cache order
+------------
+/images/*  --> expense.cdn.daws81s.fun/images/* --> it will cached 
+/static/*  --> expense.cdn.daws81s.fun/static/* --> it will cached 
+default --> dynamic content --> expense.cdn.daws81s.fun --> no cache 
+	compress objects automatically -> yes 
+	Viwers -> redirect HTTP to HTTPS 
+	Allowed HTTP methods -> GET,HEAD,OPTIONS,PUT,PATCH,DELETE
+7. Cache key and origin requests --> cache policy should be caching disabled 
+And origin request policy --> none 
+8. web application firewall -> do not enable security protections 
+9. In settings -> price class -> Use all edge locations 
+10. alternate domain name -> expense-cdn.daws81s.fun 
+11. select the custom SSL certificate -> this is what you have created 
+12. click on create cloudfront 
+
+Default indicates it is a dynamic content 
+-> Here, we can add behaviours 
+1. click on create behaviour --> /images/* 
+2. Origin name --> expense-dev.daws81s.fun
+3. Viewer -> redirects HTTP to HTTPs 
+4. Allowed HTTP methods --> GET,HEAD,OPTIONS --> cache HTTP methods, click the check box OPTIONS 
+5. Cache key and origin requests 
+	In cache policy, select cacheOptimized
+	origin request policy --> none	
+6. create behaviour 
+
+Similarly, for /static/* 
+1. click on create behaviour --> /static/* 
+2. Origin name --> expense-dev.daws81s.fun
+3. Viewer -> redirects HTTP to HTTPs 
+4. Allowed HTTP methods --> GET,HEAD,OPTIONS --> cache HTTP methods, click the check box OPTIONS 
+5. Cache key and origin requests 
+	In cache policy, select cacheOptimized 
+	origin request policy --> none
+6. create behaviour 
+
+Preferences comes in order, first it checks /images/* in the url, if it is there it will cache. 
+It checks for /static/* in the url, if it is there it will cache 
+-> If /images/* and /static/* are not in the url, then that will be treated as dynamic content not enabled for that 
+
+Invalidation: 
+-------------
+for eg: if you changed something(like image name etc), to refresh in the cache, you can create invalidation 
+
+1. create invalidation
+2. object paths --> /static/* 
+3. click on create 
+
+-> It will invalidate everything in /static/*, then edge locations are forced to pull again from the origin 
+
+-> Give the Cloudfront URL in the route53 
+1. create record 
+2. record name -> expense-cdn.daws81s.fun 
+3. enable the alias 
+	choose endpoint -> Alias to cloudfront distribution 
+	Region -> by default us-east-1 
+	Choose distribution -> This should be the cloudfront what you have created previously 
+4. click on create 
+
+static content -> images,CSS files, videos 
+Dynamic content ->  what we enter the data 
+
+-> This is a VM based application -> expense project 
+
+My Understanding of CDNs
+---------------------------
+Have you ever wondered how OTT platforms like Netflix, Amazon Prime Video, and Hotstar etc seamlessly deliver content worldwide, even if you're watching from another country? 
+
+It's all by using Content Delivery Networks (CDNs), and Amazon has created global content delivery networks. They have edge servers located around the world, which store static content like images, CSS, and JavaScript files.
+
+So, what is a CDN?
+
+CDNs store and deliver static content (like images, CSS, and JS) through caching servers, which are spread worldwide, reducing latency by serving users from the nearest edge location.
+
+How does CloudFront work?
+In AWS CloudFront, some important objects:
+1. Origin refers to the source of the content (S3, ALB, API Gateway, etc.).
+2. Cache stores static content (like images, CSS, and JS files) at edge locations.
+3. You can set cache behaviours to control what content is cached and how requests are handled.
+4. Invalidation is used when you release new content, ensuring old cached content is removed and updated content is pulled from the origin.
+
+Here, I would like to explain this with a real-time example; 
+
+when we stream shows on OTT platforms, the content may be hosted in a country far away, like the US, but we are watching from India. Without a CDN, this would result in high latency, as the data has to travel a long distance.
+
+CDNs solve this by using caching. Previously, local ISPs (Internet service providers) had caching servers. If someone downloaded a movie, it would first be saved on the ISP’s local caching server. When another person wanted the same movie, it would be delivered quickly from the local server, reducing download time and latency.
