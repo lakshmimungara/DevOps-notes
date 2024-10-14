@@ -1,0 +1,283 @@
+Day-42 session-42(14/10/2024)
+-----------------------------
+Till last session, we deployed in virtual machine -> on premise ec2 instances 
+-> After virtualization, containerization is most popular from last 6 to 7 years 
+
+Old enterprise Vs monolithic vs microservices 
+-----------------------------------------------
+old enterprise -> everything together --> frontend and backend -> we have to deploy everything from the start if we change anything in either frontend or backend  -> This is expensive process 
+
+disadvatages:
+-------------
+-> deployment process is as simple as we think 
+-> Becoz of this resources utilization is not proper 
+
+-> after that we seprated frontend and backend 
+-> frontend sends API request. Backend responds with data in json format 
+-> resource utilization increased 
+
+for example: consider roboshop project 
+--------------------------------------
+-> we have so many modules in roboshop project 
+-> user,cart, product catalogue, shipping, delivery, payment, customer support, reviews etc 
+-> These are called monolithic applications -> where all together in one 
+
+Disadvatages of monolithic
+---------------------------
+-> If there is even a small error in any module can bring the application down. customers may not even browse for the products 
+-> any changes in any module should go for the full deployment
+
+after that they evolved microservices 
+
+Microservices
+--------------
+we deploy every module sepereatly 
+user 
+cart 
+catalogue 
+shipping
+payment 
+reviews 
+delivery 
+-> All these are independent application 
+-> applications doesn't fall down. only particular module gets down that is also very rarely
+ 
+
+-> application size is large in old enterprise -> becoz, everything like frontend, backend etc are in one so, file size is very large 
+-> monolithic file size is half 
+-> file size of microservices are very less 
+
+example:
+--------
+consider joint family vs 4 mem family vs individual 
+
+independent house vs flat in apartment vs a pg room 
+
+-> joint family can be in independent house 
+-> 4 mem family can be in a flat 
+-> individual can be in pg room 
+-> when family size is reducing so we don't need large space 
+-> when application size is reducing, we don't need of heavy servers 
+
+Independent house
+------------------
+advatanges
+1. privacy 
+2. more space 
+
+disadvatages 
+------------
+1. Too much maintainance 
+2. electricity, water, internet, gas etc 
+3. construction time is very high 
+4. cost is also very high 
+
+when family size got reduced. So they moved to flats in apartment 
+------------------------------------
+advatanges:
+-----------
+1. less maintainence 
+2. electricity, water, etc canbe taken care 
+3. cost is less 
+
+disadvatages:
+-----------------
+1. less privacy 
+
+PG room 
+--------
+advanatges 
+-----------
+1. no maintainance
+2. cost is very less 
+3. flexiability is very high 
+4. no agreement 
+
+disadvatages
+-------------
+1. No privacy 
+
+
+bare metal vs VM vs containers 
+-------------------------------
+where the application size is reducing, so we don't need of heavy servers 
+bare metal servers -> purchasing physical server like dell server or HP server. we should only give the power, network etc 
+-> we install esxi Hypervisor
+-> At present, nobody is using the bare metal servers becoz applications are all reduced
+-> logically dividing bare metal servers into VMs 
+-> VM -> amazon only create one VM and give us  
+
+Likewise, microservices is very small so they choose containers 
+
+10 years ago -> when we turn on the laptop it takes time to open. but now immediately its opening -> so, this is called booting time 
+-> when size is less booting time is fast and when size gets increased or large booting time is slow 
+-> compared to bare metal servers, virtual machines and containers -> booting time is less for containers 
+-> Booting time -> how fast our application gets live 
+
+disadvantages of VMs
+---------------------
+-> we install hypervisor software above the bare metals 
+-> like, oracle VMWare 
+-> for enterprises, they have Esxi Hypervisor
+-> ubuntu --> 4GB ram and 50GB HD 
+-> centos --> 4GB ram and 50GB HD
+-> Here, resources are getting blocked in virtual machines and bare metal servers 
+
+-> Containers don't block the resources, they use resources dynamically 
+-> resource utilization is flexible in containers 
+
+advatanges of containers
+------------------------- 
+1. scalability 
+2. Realiability -> application should not get down 
+3. resource utilization 
+4. cost 
+5. provisining time/ boot time 
+6. portable 
+7. consistent across environments 
+8. auto scaling 
+
+performance -> average 
+security -> low 
+
+Containers
+-----------
+containers is populared by docker 
+
+Docker 
+
+AMI -> we selected on OS(1GB) + we configured (installation, code, dependencies, services, etc )  == AMI 
+Image --> Bare main OS(10mb) + we configured (installation code, dependencies, services, etc ) == docker image 
+
+what is docker image?
+----------------------
+Bare min OS + Application run time +dependencies + packages 
++ code 
+
+
+1. Go to AWS
+2. create ec2 instance name - 
+3. AMI - RHEL 
+4. Instance_type = t3.micro 
+5. no key pair 
+6. allow-all security group 
+7. click on launch instance
+
+we have to install docker 
+-------------------------
+1. Open chrome 
+2. search for docker install - select RHEL
+
+steps to install docker 
+------------------------  
+1. sudo yum install -y yum-utils
+2. sudo yum-config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+3. sudo yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+4. sudo systemctl start docker
+5. sudo systemctl status docker
+6. docker ps -> It works only in root user 
+
+-> when docker is installed a group called docker is created 
+-> Now, add ec2-user to the docker group 
+-> commands is, sudo usermod -aG docker ec2-user
+-> it will not get immediately. so once exit and login again to get the effect 
+
+docker commands 
+------------------
+-> we call it as instance when we run the image -> VM is the running instance of AMI 
+-> when we run an image and whatever we get is  called as container
+-> image is a static file and it has some memory. when we run it we will get something is called as container 
+-> one docker image can run in number of servers 
+-> container is the running instance of image 
+
+-> docker ps -> To check the running containers 
+-> docker images -> displays the images available in the server 
+-> docker pull <image-name> -> Pulls the image from docker repository/hub 
+
+1. search for docker hub 
+2. signup 
+3. search for nginx 
+
+for example: 
+------------
+-> I have pushed the nginx to docker hub 
+-> same like another also pushed the nginx to the docker hub 
+-> we will get confuse by this
+-> so, docker gives path format
+username/image-name:version 
+
+joindevops/nginx:1.0.0 
+joindevops/nginx:1.0.1 
+joindevops/nginx:1.0.2 
+
+nginx:version 
+nginx:latest 
+
+alphine is the smallest image (10mb) + install nginx --> nginx:alphine-slim 
+
+docker images -> wich displays the images 
+docker create <image-id>
+docker create <image-name>:version  -> create container out of image 
+docker ps -a --> checks the status of running container 
+docker start <container-id> --> start the container 
+docker stop <container id> 
+docker rm <container id> --> removes container  
+docker rm -f <container id> --> stops the running container without stopping it
+docker rmi <image-id>  --> removes images
+docker run = docker pull + create + start 
+
+How do you run the container in the backgroung?
+-----------------------------------
+Use command; docker run -d nginx
+Here, -d is for detached process 
+-> foreground = attaching to the screen 
+-> -d is for detaching the screen 
+
+Now, I have installed container in the VM. Then How can I access it in browser? 
+----------------------------------------------
+
+-> we have container inside the VM 
+-> when user accesses the server it reaches to the server port 
+-> we have host port and container port 
+-> container is like a nano/mini server. It also have 0-65,535 ports 
+-> when user hits, first request comes to server called host port 
+-> so, host port is mapped with cotainer port 
+
+we use coammand for the above; 
+-p <host-port>:<container-port>
+eg; docker run -d -p 80:80 nginx 
+docker run -d -p 8080:80 nginx
+docker run -d -p 8081:80 nginx
+
+Here, -p is for port forwarding 
+
+How can you open the container in internet?
+---------------------------------------------
+By using port forwarding  
+
+similarly, container is a nano/mini server. so, How can I login and check it? and How do you get the access to the running container 
+------------------------------------------------
+command is,  docker exec -it <container-id> bash
+where -it is for input terminal  
+
+docker inspect <container-id> --> we will get full information 
+
+docker logs <container-id>  --> we will get the logs of that particular container 
+
+
+-> docker name is actually random selects with two dictionary words 
+-> If you want to give some particular name we use this command; 
+-> docker run -d -p 8082:80 --name docker-practice nginx 
+
+docker logs <container-name>
+
+Dockerfile 
+-----------
+-> Dockerfile is used to build custom images 
+-> we will create our own images 
+-> we can make use of docker instructions to create custom images 
+
+Docker instructions are as follows 
+-----------------------------------
+FROM RUN CMD ENTRYPOINT COPY ADD ENV ARG WORKDIR USER 
+
