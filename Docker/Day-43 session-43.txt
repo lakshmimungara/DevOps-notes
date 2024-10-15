@@ -1,0 +1,213 @@
+Day-43 session-43(15/10/2024)
+------------------------------
+Recap:
+-------
+old enterprises vs monolithic vs microservices 
+contanization - docker 
+docker installation 
+docker commands 
+docker hub signin 
+
+Now, in today's class 
+------------------------
+
+Dockerfile 
+-----------
+-> Dockerfile is used to build custom images 
+-> we will create our own images 
+-> we can make use of docker instructions to create custom images 
+
+Docker instructions are as follows 
+-----------------------------------
+FROM RUN CMD ENTRYPOINT COPY ADD ENV ARG WORKDIR USER 
+
+1. FROM instruction
+-----------------------
+-> It should be the first instruction in dockerfile. IT represents base OS. There is an exception ARG 
+-> The FROM instruction initializes a new build stage and sets the base image 
+
+create one repo and clone it in gitbash 
+
+
+filename should be like this: Dockerfile
+
+syntax of FROM instruction:
+----------------------------
+FROM <base-os-name>:version
+
+example; RHEL-9: VM OS --> it has high memory 
+almalinux == RHEL
+
+FROM almalinux:9 
+
+-> it pulls from almalinux
+
+How you build docker image?
+----------------------------
+docker build -t <image-name>:<version> .  
+-> Here, . represents current folder of a Dockerfile 
+-> -t represents tagging 
+eg;
+docker build -t from:v1 .
+
+2. RUN instruction
+------------------
+-> It is used to configure image like installing packages, configure, etc. RUN instruction runs at the time of image building 
+ 
+FROM almalinux:9 
+RUN dnf install nginx -y 
+
+docker build -t run:v1 . 
+docker images
+
+
+3. CMD instruction
+-------------------
+-> It runs at the time of container creation 
+-> It keeps container running 
+-> CMD instruction sets the command to be executed when running a container from an image 
+-> you can specify the CMD instruction using shell or exec forms 
+
+eg: we use commands to start in VMs is systemctl start backend -> it runs infinite times 
+systemctl start nginx --> /etc/systemd/system/nginx.service 
+systemctl only works for full server, it will not work for containers 
+
+manual command to run :
+------------------------
+nginx -g daemon off 
+-> ir runs nginx in foreground 
+
+FROM almalinux:9
+RUN dnf install nginx -y 
+CMD["nginx", "-g", "daemon off;"]
+
+docker build -t cmd:v1 .
+docker run -d cmd:v1 
+dokcer ps 
+
+-> If you made any changes you have to the code you have to build the image again 
+
+docker build --> image creation --> RUN 
+docker run --> container creation --> CMD 
+
+-> when it runs in foreground the screen gets blocked. so, we have to use -d in the run command --> docker run -d cmd:v1 
+
+docker run -d -p 80:80 cmd:v1 
+
+Now, I have to push this to dockerhub 
+-----------------------------
+username/image-name:version
+
+Retagging:
+-----------
+docker tag cmd:v1 joindevops/nginx:v1 
+
+docker login -u <username> 
+after that enter your password
+docker push joindevops/nginx:v1 
+docker pull joindevops/nginx:v1 
+
+RUN vs CMD --> most imp interview question 
+RUN --> runs at the time of image creation 
+CMD --> runs at the time of container creation
+
+-> The instruction whatever you have given it should run infinte times 
+
+4. LABEL instruction 
+---------------------
+-> It is a key-value pair 
+-> It adds metadata to an image, like description, who is the owner, which projects. 
+-> LABELS are used to filter the images 
+-> It only adds information to your image
+
+FROM almalinux:9 
+LABEL author="lakshmi" \ 
+	company="joindevops" 
+	topics="devops"
+	duration="2 hrs"
+	
+docker build -t label:v1 .
+docker images 
+
+docker images --help 
+docker images -f 'label=company=joindevops'
+
+
+Note: MAINTAINER is depricated so we are using latest version called LABEL 
+
+5. EXPOSE instruction 
+---------------------
+-> It is used to let the users know what are the ports this containers will open when it runs 
+-> EXPOSE instruction will not effect functionality 
+-> It will only gives information 
+-> The EXPOSE instruction doesn't actually publish the port 
+
+FROM almalinux:9
+RUN dnf install nginx -y 
+EXPOSE 80 
+CMD["nginx", "-g", "daemon off;"]
+
+
+docker build -t expose:v1 . 
+docker images 
+docker inspect expose:v1 
+
+6. ENV instruction:
+--------------------
+-> sets the environment variables, these can be used inside container 
+
+FROM almalinux:9 
+ENV course="devOps with AWS" \
+	trainer="sivakumar" \
+	duration="2hrs"
+	
+docker build -t env:v1 . 
+docker run -d env:v1 sleep 100 
+docker exec -it <container-id> bash 
+
+
+7. COPY instruction:
+---------------------
+-> It is used to copy files from local to image 
+
+FROM almalinux:9
+RUN dnf install nginx -y 
+RUN rm -rf /usr/share/nginx/html/index.html 
+COPY index.html /usr/share/nginx/html/index.html
+CMD["nginx", "-g", "daemon off;"]
+
+
+docker build -t copy:v1 . 
+docker run -d 8080:80 copy:v1 
+
+docker ps -a -q 
+docker rm -f $(docker ps -a -q )
+
+8. ADD instruction:
+-------------------
+It copies new files or directories from <src> and addes them to the filesystem 
+-> ADD also does same as COPY , but it has 2 extra capabilities 
+-> It can get files from internet 
+-> It can extract 
+
+
+FROM almalinux:9
+RUN dnf install nginx -y 
+RUN rm -rf /usr/share/nginx/html/index.html 
+ADD <url> /usr/share/nginx/html/index.html 
+RUN chmod +x /usr/share/nginx/html/index.html 
+ADD sample-1 
+CMD["nginx", "-g", "daemon off;"]
+
+docker build -t add:v1 . 
+docker run -d -p 80:80 add:v1 
+docker ps 
+docker exec -it <container id> bash 
+
+
+COPY vs ADD -> interview question 
+-> copy command can get url from the internet 
+
+To rename the container 
+------------------------
+docker rename my_container my_new_container 
