@@ -1,0 +1,326 @@
+Day-44 session-44(16/10/2024)
+-----------------------------
+Recap:
+-------
+dockerfile: It is a declarative way of custom images 
+
+docker build -t username/imagename:version . --> dockerfile is required in current folder 
+docker tag imagename:version username/imagename:version
+docker login 
+docker push username/imagename:version
+docker run -d -p 80:80 username/imagename:version 
+docker exec -it username/imagename:version bash 
+
+dockerfile instruction 
+-------------------------
+1. FROM --> should be the first instruction to refer base OS 
+2. RUN --> installing packages and configuring image. It runs at the time of build 
+3. CMD --> runs at container creation time, it keeps container running. It is in executable format like ["command-name", "params"]
+4. EXPOSE --> Informs about the ports opened by container, can't really open the ports, just as a information to user
+5. ENV --> sets the env variables to the container
+6. COPY --> copies the files from workspace to image
+7. ADD --> It has two extra capabilities 
+a). can download files directly from internet
+b). can untar directly into image
+8. LABEL --> adds metadata to the image, useful while filtering the images 
+
+
+Now, in today's class 
+---------------------
+Install the docker in the server 
+
+9. ENTRYPOINT instruction: - important 
+----------------------------------------
+
+FROM almalinux:9 
+CMD ["ping", "google.com"]
+
+-> ping google.com -> which indicates google website is woring or not 
+-> CMD can be overriden at runtime 
+
+docker build -t entry:v1 . 
+docker run -d entry:v1 
+docker ps 
+docker logs -f <container-id> --> where -f for follow 
+docker rm -f <container-id>
+docker run -d entry:v1 ping yahoo.com 
+docker logs -f <container-id>
+
+FROM almalinux:9 
+ENTRYPOINT ["ping", "google.com"]
+
+docker build -t entry:v1 . 
+docker run -d entry:v1 
+docker logs -f <container-id>
+docker ps
+docker rm -f <container-id>
+docker run -d entry:v1 ping yahoo.com 
+docker ps -a 
+docker ps -a --no-trunc
+
+-> You cannot override the ENTRYPOINT like CMD. If you try to do it will go and append to the entrypoint command
+
+
+FROM almalinux:9 
+CMD ["google.com"]
+ENTRYPOINT ["ping"]
+
+docker build -t entry:v1 . 
+docker run -d entry:v1 
+docker logs -f <container-id>
+docker ps
+docker rm -f <container-id>
+docker run -d entry:v1 ping yahoo.com 
+docker logs -f <container-id>
+docker run entry:v1 ping microsoft.com --> dynamically
+
+-> for better results and best practices. CMD can provide args to ENTRYPOINT, so you can  mention default args through CMD and you can override them at run time 
+
+10. USER instruction
+---------------------
+-> for security you should not run containers using root user, it must be on normal user. Atleast last instruction should be USER <some-username> 
+
+-> containers doesn't have any root access 
+-> container is a part of the host so it doesn't have seperate storage 
+
+FROM almalinux:9
+RUN dnf install nginx -y 
+CMD["nginx", "-g", "daemon off;"]
+
+docker build -t useR:v1 . 
+docker run -d -p 80:80 user:v1 
+docker exec -it <container-id> bash 
+
+-> Container doesn't have any seperate storage 
+-> If we given root access to container it can access host and can get some secuirty issues 
+-> USER instruction can be useful in this case 
+
+FROM almalinux:9 
+CMD ["sleep", "100"]
+
+docker build -t useR:v1 . 
+docker run -d user:v1 
+docker exec -it <container-id> bash 
+
+-> this is not a best practice to take root acces 
+
+FROM almalinux:9 
+RUN useradd expense 
+USER expense 
+CMD ["sleep", "100"]
+
+docker build -t user:v1 . 
+docker run -d user:v1 
+docker exec -it <container-id> bash
+
+-> Now it is a normal user, we don't have any security issues 
+
+FROM almalinux:9 
+RUN useradd expense 
+USER expense 
+RUN useradd expense1
+CMD ["sleep", "100"]
+
+-> Here, 4th line doesn't work becoz, one user doesn't have permissions or access to add another user 
+
+11. WORKDIR instruction:
+-------------------------
+-> It is used to set the current working directory inside docker image
+
+FROM almalinux:9 
+RUN mkdir /tmp/docker 
+RUN cd /tmp/docker 
+RUN pwd    # 
+RUN echo "Hello" > hello.txt 
+CMD ["sleep", "100"]
+
+docker build -t workdir:v1 .
+docker run -d workdir:v1 
+docker exec -it <container-id> bash 
+
+find / -iname "hello.txt"  -> It shows the where the file is located 
+cd / 
+ls -l 
+cat hello.txt 
+
+-> cd command doesn't work when we are going to move different directory. so, we are using workdir
+
+FROM almalinux:9 
+RUN mkdir /tmp/docker 
+WORKDIR /tmp/docker 
+RUN pwd 
+RUN echo "Hello" > hello.txt 
+CMD ["sleep", "100"]
+
+docker build -t workdir:v1 .
+docker run -d workdir:v1 
+docker exec -it <container-id> bash 
+
+12. ARG instruction:
+--------------------
+-> It is used to set the variables at build time only, not inside the container  
+
+FROM almalinux:9 
+ARG course="Devops with AWS" \
+	duration="2hrs"
+RUN echo "course: $course, duration: $duration"
+CMD ["sleep", "100"]
+
+docker build -t arg:v1 .
+docker run -d arg:v1 
+docker exec -it <container-id> bash 
+
+-> ARG runs at the time of build 
+
+FROM almalinux:9 
+ENV course="Devops with AWS" \
+	duration="2hrs"
+RUN echo "course: $course, duration: $duration"
+CMD ["sleep", "100"]
+
+
+ARG vs ENV --> most interview question 
+---------------------------------
+1. ENV variables can be accessed in image build time and conatienr bash 
+2. ARG is only accessed at the time of image creation 
+3. You can use ARG instruction before FROM in one special case i.e to supply version to the bash image 
+4. ARG instruction before FROM is only valid until FROM, it can't be accessed after FROM 
+
+How can I access ARG values inside container?
+--------------------------------------------
+A) You can set arg value to env variable 
+
+ENV var-name=$var-name
+
+
+FROM almalinux:9 
+ARG course="Devops" \
+	duration="2hrs"
+RUN echo "course: $course, duration: $duration"
+CMD ["sleep", "100"]
+
+-> we can override the values from outside 
+-> docker build -t arg:v1 --build-arg course=docker .
+
+
+ARG version
+FROM almalinux:${version} 
+ARG course="Devops" \
+	duration="2hrs"
+RUN echo "course: $course, duration: $duration"
+CMD ["sleep", "100"]
+
+-> docker build -t arg:v1 --build-arg course=docker --build-arg version=8 .
+
+ARG version
+FROM almalinux:${version:-9} 
+ARG course="Devops" \
+	duration="2hrs"
+RUN echo "course: $course, duration: $duration"
+CMD ["sleep", "100"]
+
+-> default version
+-> docker build -t arg:v1 --build-arg course=docker .
+
+ARG version
+FROM almalinux:${version:-9} 
+ARG course="Devops" \
+	duration="2hrs"
+RUN echo "course: $course, duration: $duration , version: $version"
+CMD ["sleep", "100"]
+
+-> docker build -t arg:v1 --build-arg course=docker .
+
+ARG version
+FROM almalinux:${version:-9} 
+ARG course="Devops" \
+	duration="2hrs"
+ENV duration=$duration
+RUN echo "course: $course, duration: $duration"
+CMD ["sleep", "100"]
+
+-> docker build -t arg:v1 --build-arg course=docker .
+-> docker run -d arg:v1 
+-> docker exec -it <container-id> bash 
+
+Type env 
+
+
+-> You can create ENV variable and set ARG to the variable 
+
+
+13. ONBUILD instruction:
+-------------------------
+-> ONBUILD develops image adds to the image a trigger instruction to be excuted at a later time  
+-> It is used to trigger few instructions at build when a user is using our image 
+-> It doesn't trigger when the image author uses 
+
+FROM almalinux:9
+RUN dnf install nginx -y 
+RUN rm -rf /usr/share/nginx/html/index.html 
+# This onbuild instruction runs only, when any user uses the image 
+ONBUILD COPY index.html /usr/share/nginx/html/index.html 
+CMD["nginx", "-g", "daemon off;"]
+
+docker build -t onbuild:v1 . 
+docker images 
+
+create another folder in vs code -> test and add the Dockerfile 
+
+FROM onbuild:v1 
+# we can take base image what we have created 
+
+cd test/ 
+docker build -t onbuild:v1 . 
+
+-> we can use that image but have some conditions that we should keep index.html in our working directory 
+
+create index.html file and add content --> <h1>This image is created by onbuild base</h1>
+
+docker build -t onbuild-test:v1 .
+docker run -d -p 8080:80 onbuild-test:v1 
+
+
+STOPSIGNAL -> which is similar like kill
+-> The STOPSIGNAL instruction sets the system call signal that will be sent to the container to exit  
+
+SHELL -->  similar to the CMD 
+
+
+Expense-docker 
+--------------
+
+1. create a new repo --> expense-docker 
+2. clone it in a gitbash 
+3. MYSQL -> Dockerfile 
+
+FROM mysql:8.0
+ENV MYSQL_ROOT_PASSWORD=ExpenseApp@1 
+ADD scripts/*.sql /docker-entrypoint-initdb.d
+    # MYSQL_DATABASE=transactions \
+    # MYSQL_USER=expense \
+    # MYSQL_PASSWORD=ExpenseApp@1
+	
+docker build -t mysql:v1 . 
+docker run -d mysql:v1 
+docker exec -it <container-id> bash 
+mysql -u root -pExpenseApp@1
+show databases;
+use transactions;
+show tables; 
+
+
+
+MYSQL 
+-------
+Option-1 
+==========
+1. I take one base OS like almalinux:9 
+2. Install mysql server 
+
+Option-2 
+=========
+can I take directly mysql server official image 
+
+Mysql --> they can run few sql command to configure server 
+Backend --> backend can connect to mysql server and run the queris 
