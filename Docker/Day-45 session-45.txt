@@ -1,0 +1,216 @@
+Day-45 session-45(17/10/2024)
+------------------------------
+
+some popular interview questions
+--------------------------- 
+RUN vs CMD 
+ADD vs COPY 
+CMD vs ENTRYPOINT 
+ARG vs ENV 
+
+Now in todays class
+----------------------
+Create an instance 
+name - docker 
+AMI - RHEL 
+instance_type - t3.micro 
+without key_pair 
+security group - allow-all 
+configurationh storage - 50 GB 
+-> docker images get increases so disk storage may not get fit. so, here we are increasing storage to 50 gb 
+
+
+shell script to install docker 
+--------------------------------
+These should be run with root priviledges 
+
+vim <file-name>
+sh <file-name>
+
+check disk size -> df -h 
+-> disk size has to be extended 
+-> whenever we added new disk or else increased disk size then we have to do partition 
+-> these should be done with root access 
+
+resize the disk 
+----------------
+sudo su - 
+lsblk 
+sudo growpart /dev/nvme0n1 4
+sudo lvextend -l +50%FREE /dev/RootVG/rootVol
+sudo lvextend -l +50%FREE /dev/RootVG/varVol
+sudo xfs_growfs /
+sudo xfs_growfs /var
+df -hT 
+
+docker networking 
+--------------------
+-> every VM get access to internet from AWS ISP 
+
+
+ifconfig 
+
+AWS ISP gives one network interface and its ip address stores in ens5 
+
+ens5 -> network given by AWS ISP 
+
+-> who provides ip addresses to our laptops and mobiles --> A) Router 
+-> who provides ip address for router --> A) ISP(Internet service priver)
+
+ISP provides one external and one internai ips to the router 
+Generally, Internal ips range -> 192.168.1.0
+-> Outside our home is external ip and inside our home is internal ip 
+
+If in case, you turned off the wifi and connected to your hotspot --> then the ip address is provided by SIM related people 
+
+
+-> Then docker creates seperate virtual network interface i.e docker0  
+-> docker0: is a virtual network interface. It acts as modem to the containers inside VM 
+-> docker0 provides ip address to the containers 
+-> so, this is called bridge network 
+
+we have two types of networks in docker 
+1. host and 
+2. bridge 
+
+docker provides all the network to the containers it is all through bridge network 
+-> docker itself creates a network i.e called as bridge network 
+
+docker build -t mysql:v1 .
+docker run -d mysql:v1 
+docker ps 
+ifconfig (we have docker ip address in docker:0)
+docker inspect <container-id>
+
+gateway is nothing but modem 
+
+First, we have to install docker internally and create network. whatever container crreates inside it, docker assigns ip address to that container 
+
+Backend:
+--------
+Open expense-documentation -> https://expense-builds.s3.us-east-1.amazonaws.com/expense-backend-v2.zip
+Download the files with the above url and copy them in your vs code 
+
+
+-> when we create our backend 
+-> we have to write Dockerfile 
+
+-> we can get the official image from dockerhub 
+-> search for node:20 version 
+
+
+FROM node:20   # we are using nodejs version 20 image 
+EXPOSE 8080 	# 8080 port nummber 
+ENV DB_HOST="mysql"   # ip address might change 
+RUN mkdir /opt/server # create a directory 
+WORKDIR /opt/server    # move to that directory 
+COPY package.json .		# copying the package.json file to current folder 
+COPY *.js .       # copying the *.js files to current folder 
+RUN npm install 	# install the dependecies 
+CMD ["node", "index.js"]   #
+
+-> we cannot connect with route53 inside the container 
+-> so, we are naming the container 
+-> docker rm -f $(docker ps -a -q)
+-> docker run -d --name mysql mysql:v1 
+-> docker ps 
+
+-> docker build -t backend:v1 . 
+-> docker images 
+-> docker run -d --name backend backend:v1 
+-> docker logs <container-id>
+
+-> docker containers can't be communicated using default network. you have to create your own network 
+-> when docker is using default network we cannot communicate between containers 
+-> we have to create our own network 
+
+How to create our own network?
+------------------------------
+docker network --help 
+docker network create expense 
+docker network ls 
+ifconfig (we have bridge network)
+
+
+docker network --help 
+docker network connect expense mysql 
+docker inspect mysql 
+docker network ls 
+docker network disconnect bridge mysql 
+docker inspect mysql 
+docker network connect expense mysql 
+cd expense-docker-1/  
+docker ps -a 
+docker rm backend 
+docker run -d --network expense --name backend backend:v1
+docker ps 
+docker logs backend 
+docker exec -it backend bash 
+
+
+Now, we have to install the telnet command. before that we should about the OS 
+To check for OS --> /etc/*release 
+-> apt update 
+-> apt install telnet -y
+-> telnet mysql 3306 
+-> apt remove telnet -y 
+
+Now frontend
+--------------
+download the files by using the link provided in the expense-documentation 
+
+FROM nginx 
+COPY code /usr/share/nginx/html 
+
+
+docker build -t frontend:v1 .
+docker run -d -p 80:80 --network expens --name frontend frontend:v1 
+docker ps 
+docker exec -it frontend bash 
+cd /usr/share/nginx/html
+ls -l 
+/etc/nginx/ 
+cat nginx.conf 
+
+
+Create a file expense.conf and add the related content to it 
+
+FROM nginx 
+COPY code /usr/share/nginx/html 
+COPY expense.conf /etc/nginx/conf.d/expense.conf 
+
+docker build -t frontend:v1 .
+docker run -d -p 80:80 --network expens --name frontend frontend:v1 
+
+sudo dnf install nginx -y 
+cd /etc/nginx/nginx.conf 
+
+FROM nginx 
+COPY code /usr/share/nginx/html 
+RUN rm -rf /etc/nginx/nginx.conf
+COPY expense.conf /etc/nginx/default.d/expense.conf 
+
+docker build -t frontend:v1 .
+docker rm -f frontend 
+docker run -d -p 80:80 --network expens --name frontend frontend:v1 
+docker ps 
+docker logs frontend 
+docker exec -it frontend bash 
+cd /etc/nginx/
+ls -l 
+curl http://backend:8080/health 
+cat ../nginx.conf
+
+
+
+FROM nginx
+COPY code /usr/share/nginx/html
+RUN rm -rf /etc/nginx/nginx.conf
+RUN rm -rf /etc/nginx/conf.d
+COPY nginx.conf /etc/nginx/nginx.conf
+
+
+docker --no-cache build -t frontend:v1 .
+
+
+we cannot restart the service in containers 
