@@ -1,0 +1,315 @@
+Day-46 session-46(18/10/2024)
+---------------------------    
+docker storage - 50 GB 
+docker directory - /var/lib/docker 
+
+manually resize the disk space with some commands             
+sudo su - 
+lsblk 
+sudo growpart /dev/nvme0n1 4
+sudo lvextend -l +50%FREE /dev/RootVG/rootVol
+sudo lvextend -l +50%FREE /dev/RootVG/varVol
+sudo xfs_growfs /
+sudo xfs_growfs /var
+df -hT 
+
+docker networking:
+-------------------
+1. host 
+2. bridge --> default 
+3. overlay -->between multiple docker hosts 
+-> overlay - from one server network to another another server network communication 
+
+
+what is host network?
+----------------------
+-> containers share the host network address -> they will not get seperate ip address, whatever the host network have that only containers take 
+-> AWS ISP provides the ip addresses 
+
+1. containers using host network will not get ip address 
+2. It means containers are sharing host IP address
+3. containers open host port 
+
+for example: 
+-------------
+mysql --> 3306 --> host port
+backend --> 8080 --> host port
+forntend --> 80 --> host port
+
+
+docker build -t mysql:v1 .
+docker network ls 
+docker run -d --name mysql --network host mysql:v1
+sudo netstat -lntp --> it shows 3306 port number
+docker inspect mysql 
+
+Now backend:
+------------
+
+FROM node:20   # we are using nodejs version 20 image 
+EXPOSE 8080 	# 8080 port nummber 
+ENV DB_HOST="localhost"   # ip address might change 
+RUN mkdir /opt/server # create a directory 
+WORKDIR /opt/server    # move to that directory 
+COPY package.json .		# copying the package.json file to current folder 
+COPY *.js .       # copying the *.js files to current folder 
+RUN npm install 	# install the dependecies 
+CMD ["node", "index.js"]   # 
+
+
+ENV DB_HOST="mysql" --> when we assign like this, it is like a container network not the bridge network
+ENV DB_HOST="localhost" --> bridge network
+
+
+when you are connecting to containers it is a bridge network not the host network
+
+docker build -t backend:v1 .
+docker run -d --name backend --network host backend:v1 
+docker logs backend  
+
+so, here the DB_HOST="localhost" should be localhost then only we can connect to the backend 
+
+docker rm backend 
+docker build -t backend:v1 .
+docker run -d --name backend --network host backend:v1 
+docker ps 
+docker logs backend 
+
+docker run -d -it nginx 
+docker exec -it <container-id> bash 
+cd /etc/nginx/ 
+ls -l 
+cd conf.d/
+cat default.conf
+
+Two nginx configurations should not be there . if so, they will collide 
+
+docker rm -f <nginx-container-id>
+
+Now for frontend
+-----------------
+-> it is not an container network, so we may not expose the port numbers wile running
+
+docker build -t forntend:v1 . 
+docker run -d --name frontend --network host frontend:v1 
+docker ps 
+
+disadvantages of host network
+------------------------------
+1. There is no isolated network for docker contents 
+2. There is no security
+3. There is no dedicated network  
+
+-> container ports are not host ports they are logical ports 
+
+docker rm -f `docker ps -a -q`
+
+2. Bridge network 
+-------------------
+-> This is a default network 
+-> In default network DNS doesn't works internally 
+-> It doesn't have any components related to DNS 
+-> it only works in custom network 
+
+docker network create expense 
+docker network ls 
+ 
+docker run -d --name mysql --network expense mysql:v1
+docker ps 
+docker inspect mysql 
+
+docker build -t backend:v1 . 
+docker run -d --name backend --network expense backend:v1
+docker ps 
+docker logs backend 
+
+docker build -t frontend:v1 . 
+docker run -d -p 80:80 --name frontend --network expense frontend:v1
+docker ps 
+
+
+3. overlay -->between multiple docker hosts
+------------
+-> one network doesn't enough for us.so sometimes we have to use multiple networks 
+-> two containers in two different networks  connect and communicate through modem 
+-> Keeping docker in multiple networks and it is risky so for this we need orchestration 
+
+
+-> we may loose the data, once we removed the containers 
+-> So, here comes the concept called volumes 
+
+
+Volumes:
+--------
+-> containers are ephemeral. Once you remove container you lose data. data is not persisted by default 
+-> we need some kind of mechanism to store the data even if the container is removed 
+-> This can be possible throgh the volumes 
+
+They are two types of volumes 
+1. Unnamed volues 
+2. Named volumes 
+
+docker rm -f `docker ps -a -q`
+
+docker run -d -p 80:80 nginx 
+docker exec -it <container-id> bash 
+cd /usr/share/nginx/html 
+ls -l 
+echo "hello Docker volumes" > hello.html 
+
+docker rm -f <container-id>
+
+->After removing, If we run again the nginx we donot get the same data 
+
+docker run -d -p 80:80 nginx 
+
+-> Here, we will get the nginx page but we will get the data.By this, data is not persistent 
+-> To persist the data we have to Mount the storage in host to the container 
+
+-v host-path:container-path 
+here, -v is volume 
+
+-> At some where in the host we have to create the directory and it should be mount to the container 
+
+docker rm -f <nginx-container-id>
+
+come out of the git repo 
+create a directory -> mkdir nginx-data 
+docker run -d -v /home/ec2-user/nginx-data/:/usr/share/nginx/html -p 80:80 nginx 
+docker exec -it <container-id> bash 
+cd /usr/share/nginx/html
+echo "hello Docker volumes" > hello.html 
+
+docker rm -f <conatiner-id>
+
+docker run -d -v /home/ec2-user/nginx-data/:/usr/share/nginx/html -p 80:80 nginx 
+
+-> container got removed but data is mounted so, it is not removed and it is already stored in /home/ec2-user/nginx-data/
+
+cd nginx-data/
+ls-l
+echo "<h1>This is from host storage</h1>" > volume.html 
+
+-> So, by this we can persist the data instead of loosing it 
+-> Unnamed volumes are not in the docker control
+-> we have to manage the directory, related data, and permissions etc 
+
+2. Named volumes:
+------------------
+-> creating with the help of docker commands 
+
+docker volume --help
+docker volume create nginx-html 
+docker volume ls
+
+-> It is in a proper naming convention that we can easily understand 
+-> we can use the docker commands to manage the life cycle of that volume --> life cycle (creation, deletion etc )
+
+docker inspect nginx-html
+docker ps 
+docker rm -f <container-id>
+docker run -d -v nginx-html:/usr/share/nginx/html -p 80:80 nginx 
+docker ps 
+docker rm -f <container-id>
+docker volume ls 
+
+-> After removing container, volume not get deleted 
+-> Here we have a dependency so we cannot run the where it increases the length of the command 
+
+
+Note: whenever commands length increases or else increasing no.of commands or increasing manual dependecies then we have to keep all those in a file and run the file 
+
+so, that file is called docker compose 
+
+here comes the docker compose into picture 
+
+Docker compose:
+---------------
+-> It is the way of managing multiple containers at a time 
+-> To manage all the services at a time 
+-> It is a tool for defining and running multi-container applications
+-> It is the key to unlocking a streamlined and efficient development and deployment experinces 
+
+-> If you have more containers and if you want multiple containers at a time running docker commands in the terminal is not a good approach 
+-> So, you can define a file called docker compose so, you can define all your services and you can manage them properly 
+
+-> You can start, stop, and rebuild services easily 
+
+docker rm -f <container-id>
+docker network remove expense 
+
+Expense project 
+-----------------
+we have done,
+
+1. To create a network
+2. To create a volume 
+3. mysql 
+4. backend 
+5. frontend 
+
+
+-> whatever we created are local images 
+-> If we have taken a new server and wanted to run these images in that server 
+-> then we have to push these images to dockerhub and pull from there
+
+docker login -u mahalakshmi2997
+docker tag mysql:v1 mahalakshmi2997/mysql:v1
+docker tag backend:v1 mahalakshmi2997/backend:v1
+docker tag frontend:v1 mahalakshmi2997/frontend:v1
+
+docker push mahalakshmi2997/mysql:v1
+docker push mahalakshmi2997/backend:v1
+docker push mahalakshmi2997/frontend:v1
+
+-> docker is portable becoz, whenever you created new instances no need to build we can pull the containers and use them
+-> OS can be anything either ubuntu or centos or redhat 
+
+ 
+so create a one file called docker-compose.yaml
+ 
+ 
+version: "3"
+networks:
+  expense:
+volumes:
+  mysql:  # docker volume create mysql
+services:
+  mysql:
+    image: mahalakshmi2997/mysql:v1
+    container_name: mysql # --name mysql
+    volumes:
+    - mysql:/var/lib/mysql # -v mysql:/var/lib/mysql
+  backend:
+    image: mahalakshmi2997/backend:v1
+    container_name: backend
+    command: sh -c "sleep 5 && node /opt/server/index.js"
+    depends_on:
+    - mysql
+  frontend:
+    image: mahalakshmi2997/frontend:v1
+    container_name: frontend
+    ports:
+    - 80:80
+    depends_on:
+    - backend 
+		
+docker compose up -d 
+docker ps 	
+docker compose down (stopping from reverse order)
+
+Advantages of docker compose:
+-----------------------------
+1. You can manage the services with dependencies 
+2. You can manage all the services with a single command 
+
+These all we use it for images in docker but we get some problems when we run containers inside docker servers 
+ 
+Kubernetes evolved becoz, we cannot run the containers inside the docker host 
+-> we can use the docker for building the images 
+-> But running containers docker is not scalable 
+
+In real projects, we build images using docker and we run the containers using kubernetes 
+
+	
+	
