@@ -1,0 +1,354 @@
+Day-47 session-47(21/10/2024)
+-----------------------------
+Compared to VMs and cisco servers docker has some less security issues. so, to avoid this we have to take some precausions  
+
+Docker Best Practices
+-----------------------
+1. Use Official and Verified Images  -- important
+---------------------------------------
+Official Images: Start with official images from Docker Hub when possible, as they are maintained and updated regularly.
+Minimal Base Images: Use minimal base images (like alpine) to reduce the attack surface and image size.
+
+1. docker installation and increase the disk space by using some commands 
+2. git clone <https url>
+3. cd expense-docker-1/
+4. docker compose up -d
+5. check the application in chrome 
+6. docker images --> backend has more size(i.e. 1GB if it is 1gb no need to run in containers it can be run VMs -> so, we have to reduce the image size)
+7. what is the image that has minimum memory?
+A) alpine -> which has almost 15 mb 
+
+alpine base image + node js 20 install
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN mkdir /opt/server
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+CMD ["node", "index.js"]
+
+1. cd backend/
+2. docker build -t mahalakshmi2997/backend:v1 .
+3. docker images --> backend image gets less image size 
+4. docker compose up -d 
+
+
+2. Keep Images Small
+----------------------
+Multi-Stage Builds: Use multi-stage builds to minimize the final image size by only including necessary components.
+Remove Unnecessary Files: Clean up package lists, cache files, and other unnecessary files to keep the image lean.
+
+3. Tag Images Properly
+-----------------------
+Version Tagging: Tag images with version numbers (e.g., myapp:1.0) instead of just using latest to avoid ambiguity and ensure consistency across deployments.
+
+4. Manage Secrets Securely
+----------------------------
+Environment Variables: Avoid hardcoding secrets in your Dockerfile or image. Use environment variables or Docker secrets for sensitive information.
+Docker Secrets: Utilize Docker Swarm or Kubernetes secrets management for secure storage and usage of sensitive data.
+
+5. Use Dockerignore
+--------------------
+.dockerignore File: Include a .dockerignore file to prevent unnecessary files and directories from being added to the build context, speeding up the build process and keeping the image clean.
+
+6. Run as Non-Root User
+-------------------------
+Non-Root User: Create and run containers with a non-root user to improve security. You can add a user in the Dockerfile using RUN useradd -m myuser and switch to that user with USER myuser.
+
+1. pwd --> /home/ec2-user
+2. touch high-confidential 
+3. vim touch-confidential --> secrets 
+4. docker run -d -v /:/spam nginx 
+5. docker ps 
+6. docker exec -it <container-id> bash 
+-> ls -l
+-> cd /spam /
+-> ls -l 
+-> cd home/
+-> cd ec2-user/
+-> ls -l 
+-> cat high-confidential 
+
+-> It means, a container running with root access and there is a chance to access the host file system 
+-> one host consists of no.of containers 
+-> Ultimately containers data is in host 
+-> If we given root access to any container then it can access the other containers and also host confidential information 
+-> So, this is a severe security issues. becoz of this, we shouldn't run the containers with root access
+
+1. docker ps 
+2. docker rm -f <nginx-container-id>
+3. docker exec -it backend sh (in alpine we use sh instead of bash)
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN addgroup -S expense && adduser -S expense -G expense 
+RUN mkdir /opt/server
+RUN chown -R expense:expense /opt/server
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+USER expense
+CMD ["node", "index.js"]
+
+1. cd expense-docker-1/backend/
+2. docker build -t mahalakshmi2997/backend:v1 .
+3. cd ..
+4. docker compose up -d 
+5. docker ps 
+6. docker exec -it backend sh (here we get a normal user)
+7. check the appliction the browser 
+
+
+7. Optimize Layer Caching  -- important
+--------------------------
+Layer Order: Order your Dockerfile instructions to maximize layer caching. Frequently changing commands should be at the end of the Dockerfile.
+Combine Commands: Combine commands where possible to reduce the number of layers, but balance it with readability.
+
+1. docker rm -f `docker ps -a -q`
+2. docker rmi `docker images -a -q`
+3. docker images are layer based -> docker images are imutable
+export DOCKER_BUILDKIT=0
+4. cd backend/ 
+5. docker build -t mahalakshmi2997/backend:v1 . 
+
+How layers will run?
+-----------------------
+1. FROM:node --> this will be pulled from docker hub 
+-> docker images and docker containers are imutable that cannot be changed  
+-> docker creates a container from 1st instruction and runs 2nd instruction inside it --> let it be C1 container 
+2. EXPOSE 8080 
+-> Once 2nd instruction runs, it will create a image from this container --> let it be I1 image 
+-> we can save running container into images 
+3. docker creates a container from I1 image --> let it be C2 
+runs 3rd instruction inside C2 container 
+ENV DB_HOST="mysql"
+docker creates image from C2 container that is I2 
+4. docker creates container from I2 images, i.e C3 
+
+Ramesh 
+-------
+FROM node:20.18.0-alphine3.20 --> I1 
+EXPOSE 8080 --> I2 
+ENV DB_HOST="mysql" --> I3 
+RUN addgroup -S expense && adduser -S expense -G expense --> I4 
+
+Suresh
+---------
+FROM node:20.18.0-alphine3.20 --> I1 
+EXPOSE 8080 --> I2 
+ENV DB_HOST="mysql" --> I3 
+RUN addgroup -S expense && adduser -S expense -G expense --> I4 
+RUN mkdir /opt/server 
+
+Rahim 
+------
+FROM node:20.18.0-alphine3.20 --> I1 
+EXPOSE 8080 --> I2 
+ENV DB_HOST="mysql" --> I3 
+USER expense 
+
+-> Intermediate images get deleted but pushes to dockerhub 
+-> layers pushes to dockerhub and intermediate containers will get deleted 
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN addgroup -S expense && adduser -S expense -G expense 
+RUN mkdir /opt/server
+RUN chown -R expense:expense /opt/server
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+USER expense
+CMD ["node", "index.js"]
+
+-> Now, the no.of lines of layers get pushed 
+-> docker login -u mahalakshmi2997
+-> unset DOCKER_BUILDKIT
+-> docker build -t mahalakshmi2997/backend:v1 . 
+-> docker images 
+-> docker push mahalakshmi2997/backend:v1 
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN addgroup -S expense && adduser -S expense -G expense 
+RUN mkdir /opt/server
+RUN chown -R expense:expense /opt/server
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+USER expense
+EXPOSE 8081 
+RUN echo "hello world"
+RUN echo "hello docker" 
+CMD ["node", "index.js"]
+
+->  docker build -t mahalakshmi2997/backend:v1 .
+-> docker push mahalakshmi2997/backend:v1
+
+-> frequently changing instructions should be bottom of the dockerfile, we can save build time and memory of the layers 
+
+-> docker images are working based on layers 
+-> every instruction creates intermediate container and run the next instruction inside it 
+-> then it saves the container as image layer, intermediate container will be deleted 
+-> to run next instruction docker creates intermediate container again from this image 
+-> it goes on, at each step intermediate container are removed 
+-> each layer is cached, when you push it pushes the layers 
+
+-> for extra layers, time increases and size may also increases 
+-> build takes time and layers are being extra 
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN addgroup -S expense && adduser -S expense -G expense &&  \
+	mkdir /opt/server && \
+	chown -R expense:expense /opt/server
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+USER expense
+EXPOSE 8081 
+RUN echo "hello world"
+RUN echo "hello docker" 
+CMD ["node", "index.js"]
+
+docker build -t mahalakshmi2997/backend:v1 . 
+docker images 
+
+-> so combine all the instructions in a single line 
+
+Multi stage builds -- important
+-------------------
+ 
+-> It reduces the image size 
+-> It has development and running
+
+JDK, JRE 
+JDK -> java development kit 
+JRE -> Java runtime environment 
+
+-> for development we need some tools
+-> JDK > JRE --> JRE is subset of JDk 
+
+-> .jar file is the output of build 
+-> for nodejs project we get node_modules as build, now we need out code and node_modules
+
+npm install -> node_modules -> usually creates some cache 
+
+-> Multi stage builds means, it looks like 2 dockerfiles inside 1 
+-> 1 dockerfile we use it for build 
+-> we copy the output in 2nd dockerfile 
+ 
+
+FROM node:20 AS builder
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN addgroup -S expense && adduser -S expense -G expense &&  \
+	mkdir /opt/server && \
+	chown -R expense:expense /opt/server
+WORKDIR /opt/server
+COPY --from=builder /opt/server /opt/server
+USER expense 
+CMD ["node", "index.js"]
+
+
+1. docker build -t mahalakshmi2997/backend:v1 . 
+2. docker images 
+3. cd .. 
+4. docker compose up -d 
+
+8. Leverage Health Checks
+---------------------------
+Healthcheck: Define HEALTHCHECK instructions in your Dockerfile to allow Docker to monitor the health of your application and take action if it becomes unhealthy.
+
+9. Use Volumes for Persistent Data
+------------------------------------
+Volumes: Use Docker volumes to persist data outside of the container’s filesystem, ensuring data is not lost when the container is removed or updated.
+Bind Mounts: Use bind mounts for development to sync code changes in real-time.
+
+10. Limit Container Resources
+------------------------------
+Resource Constraints: Set resource limits (--memory, --cpu-shares, etc.) to prevent a single container from consuming excessive resources on the host.
+
+11. Network Configuration
+---------------------------
+Custom Networks: Use custom networks to isolate containers and manage communication more securely and efficiently.
+Service Discovery: Use Docker's built-in DNS service for container name resolution within custom networks.
+
+12. Log Management
+--------------------
+Log Drivers: Configure appropriate log drivers (json-file, syslog, fluentd, etc.) to manage container logs effectively.
+Centralized Logging: Use centralized logging solutions to aggregate and analyze logs from multiple containers and hosts.
+
+13. Security Best Practices
+----------------------------
+Minimal Privileges: Grant the minimum necessary privileges to your containers.
+Regular Updates: Regularly update base images and dependencies to mitigate vulnerabilities.
+
+14. Automated Builds and CI/CD Integration
+-------------------------------------------
+CI/CD Pipelines: Integrate Docker builds into your CI/CD pipelines to automate testing, building, and deployment of images.
+Automated Tests: Write and run automated tests to validate your Docker images before deploying them.
+
+15. Documentation and Comments
+--------------------------------
+Document Dockerfiles: Comment and document your Dockerfiles to explain the purpose of each instruction, making it easier for others to understand and maintain.
+By following these best practices, you can ensure that your Docker containers are secure, efficient, and maintainable.
+
+-> we restrict docker for image building, running the images as containers we will use kubernetes
+
+Docker architecture 
+--------------------
+1. docker client 
+2. docker daemon 
+3. local repository 
+4. remote repository 
+
+-> docker client is nothing but a docker command 
+-> docker host/daemon --> docker service running
+-> docker run -d -p 80:80 nginx 
+-> docker daemon checks whether image exist local or not, if exist it will run 
+-> if not exist, it will pull from registry/hub, create a container out of it, run it and send the output to the client 
+
+Now frontend - optimization 
+-----------------------------
+FROM nginx:mainline-alpine3.20-slim
+RUN rm -rf /etc/nginx/nginx.conf && \
+	rm -rf /etc/nginx/conf.d/default.conf && \
+    mkdir -p /var/cache/nginx/client_temp && \
+    mkdir -p /var/cache/nginx/proxy_temp && \
+    mkdir -p /var/cache/nginx/fastcgi_temp && \
+    mkdir -p /var/cache/nginx/uwsgi_temp && \
+    mkdir -p /var/cache/nginx/scgi_temp && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /etc/nginx/ && \
+    chmod -R 755 /etc/nginx/ && \
+    chown -R nginx:nginx /var/log/nginx && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid /run/nginx.pid
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY code /usr/share/nginx/html
+USER nginx 
+# COPY expense.conf /etc/nginx/conf.d/expense.conf
+
+1. docker build -t mahalakshmi2997/frontend:v1 . 
+2. docker compose up -d 
+3. docker images 
+ 
+docker history mahalakshmi2997/backend:v1 
