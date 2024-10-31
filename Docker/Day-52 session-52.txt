@@ -1,0 +1,695 @@
+Day-52 session-52(30/10/2024)
+----------------------------
+
+we have discussed about volumes 
+-> volumes shouldn't keep within the cluster
+-> we shouldn't store the  pod related data in the master node or worker node. if we store that is going to be temporary data 
+-> so, keeping volumes out of the cluster is the safe 
+
+static provisioning 
+---------------------
+EBS 
+
+1. we need to create a volumes 
+2. we need to install the drivers (everything is written in drivers)
+3. EKS nodes should have permissions to access EBS volumes 
+
+PV -> pysical representaton of the external volume . It is a cluster level and PVC -> it is a claim, a request from the pod for the storage and it is a namespace level 
+
+-> In dynamic provioning we have an object called Storage class. It will take care of volume creation and PV creation 
+ 
+
+Now in today's class
+------------------------
+EFS (Elastic File system)
+
+EBS vs EFS --> important for interviews 
+-------------------------------------------
+
+1. EBS is a block storage, EFS is like NFS (Network File System)
+2. EBS should be as near as possible.EFS can be anywhere in the network 
+3. EBS is fast campared to EFS 
+4. EBS we can store OS, databases. EFS is not good OS and databases
+5. EFS can increase stoarge limit automatically based on requirement  
+6. Generally files are stored in EFS (like customer related forms and signed documents)
+
+what are the things we have to provide in static provisioning ?
+
+1. create EFS volume 
+2. install drivers and allow 2049 traffic from EKS worker nodes 
+3. Give permissions to EKS nodes 
+4. create PV
+5. create PVC 
+6. claim through pod using PVC 
+7. open node port in the EKS worker nodes 
+
+First, we have to create EFS 
+1. Go to AWS 
+2. Elastic File System -> file systems 
+3. click on create a file system 
+4. name -> expense and VPC -> eksctl-expense-cluster (this is what we created for kubenetes the same you have to take)
+5. click on create 
+
+wait for sometime till network gets allocated to the file system in EFS
+
+Does EFS is VPC based resource or not?
+A) yes, becoz we have subnets and everything related to network 
+
+We have to install drivers 
+--------------------------
+1. search for efs kubernetes 
+-> Go for manifest public registry 
+
+make sure you are not in a git repo
+
+-> kubectl kustomize \
+    "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-2.1" > public-ecr-driver.yaml
+	
+search for aws get kubeconfig
+-> aws eks --region us-east-1 update-kubeconfig --name expense  (this is used whenever kubeconfig gets disturbed)
+-> kubectl get nodes 
+-> kubectl apply -f public-ecr-driver.yaml 
+
+-> Open EFS file system which was created earlier 
+-> check for network SG 
+-> Ultimately requests comes from nodes to the volumes 
+-> If the request is from pod also that comes out of the node to the NFS 
+-> for NFS, 2049 is the protocol  
+-> So, now EFS should allow the traffic from this security group to the 2049 protocol 
+-> It means, EFS SG should allow traffic on 2049 from the SG attached EKS workers nodes 
+
+
+-> Go to EFS which was created and open network 
+-> copy the Sg and check it with which instances it is associated 
+-> edit the inbound rules -> NFS and 2049 and save the rules 
+
+-> In security, open the IAM rules and click on add permissions and click on attach policies 
+
+IAM -> roles -> add permissions -> AmazonEFSCSIDriverPolicy
+
+===================
+04-efs-static.yaml 
+=====================
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: expense-efs
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: replace-with your EFS file system id 
+	
+kubectl apply -f 04-efs-static.yaml
+kubectl get pv 
+
+Now create PVC 
+-----------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: expense-efs
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-00cbb3f0e4313c700
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: expense-efs
+spec:
+  volumeName: expense-efs
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 5Gi
+	  
+kubectl apply -f 04-efs-static.yaml
+kubectl get pvc
+
+add pod and service also 
+-------------------------
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: expense-efs
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: fs-00cbb3f0e4313c700
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: expense-efs
+spec:
+  volumeName: expense-efs
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: efs-static
+  labels:
+    purpose: efs-static
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    volumeMounts: # docker run -v hostpath:contaierpath
+    - name: expense-efs
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: expense-efs
+    persistentVolumeClaim:
+      claimName: expense-efs
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx
+spec:
+  type: LoadBalancer
+  selector:
+    purpose: efs-static
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+    nodePort: 30007
+
+-> click on any of the instance(i.e worker node) 
+-> click on edit inbound rules -> customTCP, 30007 and 0.0.0.0/0 and save the changes 
+
+
+kubectl apply -f 04-efs-static.yaml
+kubectl get pods 
+kubectl exec -it efs-static -- bash 
+cd /usr/share/nginx/html
+echo "<h1> hello from efs static volumes</h1>" > index.html 
+-> kubectl get svc 
+-> Access Load balancer DNS in the chrome (should run with http)
+-> kubectl delete pod efs-static 
+-> kubectl apply -f 04-efs-static.yaml
+-> Again test in the chrome (we will not get changed anything)
+
+
+EFS through dynamic 
+--------------------
+-> The only difference between static and dynamic is storage class 
+-> stoarge class creation (everything it will be taken care)
+
+==================
+05-efs-sc.yaml 
+==================
+-> In projects, most of the times in EFS we will go for dynamic provisioning 
+-> file system cannot be automated so, we should manually create it 
+-> for entire project we have only one EFS but for different applications the access points get created 
+
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: efs-expense
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  directoryPerms: "700"
+  fileSystemId: fs-00cbb3f0e4313c700 (replace-with-your-file-system-id)
+  basePath: "/expense"
+	
+	
+kubectl apply -f 05-efs-sc.yaml
+kubectl get sc 
+
+====================
+06-efs-dynamic.yaml 
+====================
+-> In dynamic, we don't require any PV. becoz storage class creates the volume and also create the PV 
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-dynamic
+spec:
+  storageClassName: "efs-expense"
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: efs-dynamic
+  labels:
+    purpose: efs-dynamic
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    volumeMounts: # docker run -v hostpath:contaierpath
+    - name: efs-dynamic
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: efs-dynamic
+    persistentVolumeClaim:
+      claimName: efs-dynamic
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx
+spec:
+  type: LoadBalancer
+  selector:
+    purpose: efs-dynamic
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+    nodePort: 30007
+	
+-> To avoid the port issues first delete the efs-static 
+-> kubectl delete -f 04-efs-static.yaml 
+
+kubectl apply -f 06-efs-dynamic.yaml
+kubectl  get pv,pvc 
+kubectl describe pvc efs-dynamic 
+kubectl get pods 
+
+-> Go to EFS and check for access points 
+-> /expense/<access-point> (here /expense is a base path and after that remaining all application access point)
+-> when no.of applications increases and the no.of access points get increased 
+-> EFS volume creation is not dynamic but access points are dynamic 
+
+
+Expense project 
+---------------
+what is the stateful application in expense project?
+A) mysql is the stateful application
+
+-> previously, we don't have an option to keep the databases 
+
+statefulset vs deployment -> important for interviews 
+------------------------- 
+-> statefulset is for DB related application
+-> deploymeny is for stateless application
+
+-> statefulset will have headless service along with normal service. It requires pv and pvc objects 
+-> deployment will not have headless service 
+
+
+-> mysql master has different nodes and every node has individual their own database 
+-> if one node received any data relication (like creation, updation,deletion etc) it informs other nodes to do the same 
+
+In k8-resources, 16-deployment.yaml 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels: # these are replicaset labels
+    app: nginx
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 3
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      tier: frontend
+      app: nginx
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        tier: frontend
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:stable-perl
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx
+spec:
+  selector:
+    tier: frontend
+    app: nginx
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+
+
+-> kubectl apply -f 16-deployment.yaml 
+-> kubectl get svc 
+	
+-> delete the efs-dynamic 
+-> kubectl delete -f 06-efs-dynamic.yaml 
+-> cd .. 
+-> kubectl apply -f 02-pod.yaml 
+-> kubectl get pods 
+-> kuebctl exec -it nginx -- bash 
+-> cat /etc/*release 
+-> apt update 
+-> apt install dnsutils
+-> type y 
+-> nslookup nginx 
+
+-> kubectl get svc 
+-> kubectl get pods 
+-> kubectl apply -f 16-deployment.yaml 
+-> kubectl get svc 
+-> kuebctl exec -it nginx -- bash
+-> nslookup nginx 
+
+-> kubectl describe service nginx (we will get load balancer and with three endpoints ip addresses)
+
+what is headless service?
+A) Headless service will not have cluster IP, if anyone does nslookup on headless service it will give all endpoints 
+-> headless service is ntng but there is no cluster IP 
+
+create a new folder k8-expense-volumes 
+
+Here we are rewriting the expense-project 
+1. create expense namespace
+2. install ebs drivers 
+3. create ebs sc 
+4. give eks nodes ebs permissions
+5. create pvc and create statefulset 
+
+=================
+01-namespace.yaml 
+=================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: expense
+  labels:
+    project: expense
+    environment: dev
+	
+-> kubectl apply -f 01-namespace.yaml 
+	
+Now we have to install ebs drivers 
+-> search for ebs csi kubernetes
+-> kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.36"
+
+next create ebs-sc 
+
+==============
+02-ebs-sc.yaml
+===============
+ 
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: expense-ebs
+reclaimPolicy: Retain
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer # storage will be created when pod is getting created
+
+-> kubectl apply -f 02-ebs-sc.yaml
+
+next give eks nodes ebs permissions 
+
+-> open any of the worker nodes of EKS(i.e any instances)and now Go to IAM -> roles -> add permissions -> attach policy -> AmazonEBSCSIDriverPolicy
+
+-> till now admin tasks are completed and now we are informing to application team to create an applications or required things and they have to create PVC 
+
+In mysql folder, create a file manifest.yaml 
+
+manifest.yaml 
+
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql-headless
+  namespace: expense
+spec:
+  clusterIP: None # for headless service there is no cluster IP
+  selector:
+    project: expense
+    component: mysql
+    tier: db
+  ports:
+  - protocol: TCP
+    port: 3306 # service port
+    targetPort: 3306
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql
+  namespace: expense
+spec:
+  selector:
+    project: expense
+    component: mysql
+    tier: db
+  ports:
+  - protocol: TCP
+    port: 3306 # service port
+    targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: expense
+spec:
+  selector:
+    matchLabels:
+      project: expense
+      component: mysql
+      tier: db
+  serviceName: "mysql-headless" # this is the headless service should be mentioned for statefulset
+  replicas: 2  
+  template:
+    metadata:
+      labels:
+        project: expense
+        component: mysql
+        tier: db
+    spec:
+      containers:
+      - name: mysql
+        image: mahalakshmi2997/mysql:v1
+        volumeMounts:
+        - name: mysql
+          mountPath: /var/lib/mysql
+  # This is PVC defnition, directly mentioned here
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "expense-ebs"
+      resources:
+        requests:
+          storage: 1Gi
+
+-> for statefulset, it should have headless service and PVC is mandatory 
+
+-> kubectl apply -f manifest.yaml 
+-> kubens expense (we have to setup the expense namespace)
+-> kubectl get pods (we will get two pods)
+-> kubectl get pv,pvc 
+-> kubectl get svc 
+-> kubectl exec -it mysql-0 -- bash 
+-> microdnf update -y 
+-> microdnf install -y bind-utils
+-> nslookup mysql-headless 
+
+
+-> kubectl get pods -o wide 
+
+-> when we give nslookup for headless service then we got a response of pod ip addresses 
+-> for normal service, we got a response of cluster ip address 
+
+why to use headless service and what is headless service ?
+A) headless service will not have any cluster Ip attached to it 
+-> In a database application, if any create, update, delete operation comes to one node it has to inform all the other nodes 
+-> first, it will do nslookup of headless service. so that it can find all the ip addresses of other nodes and then inform to them 
+
+-> pod name in statefulset is created in orderly manner 
+-> statefulset will keeps it's pod identity. pod names will be created as -0,-1,-2 etc 
+-> when we delete it, it deletes in a reversely manner 
+
+-> kubectl delete -f manifest.yaml 
+-> kubectl apply -f manifest.yaml 
+-> kubectl get pods -o wide (first it creates one pod and after completion of creation and while it is in running state other one gets create and in a running status)
+
+-> kubectl get pvc (eg., mysql-mysql-0 here identity and names are important becoz, that pod goes and attach to that database)
+
+create a backend folder -> manifest.yaml 
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: joindevops/backend:v1
+        envFrom:
+        - configMapRef:
+            name: backend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+
+-> cd ../backend 
+-> kubectl apply -f manifest.yaml 
+
+create a folder frontend -> manifest.yaml 
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: joindevops/frontend:v1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+
+-> cd ../frontend 
+-> kubectl apply -f manifest.yaml 
+-> kubectl get pods 
+-> kubectl get svc 
+-> for any of the worker node(i.e instance), in security group allow all the traffic -> All TCP, 0.0.0.0/0 -> save the changes 
+-> open the load balancer, check the service is in active state in network
+-> Take the DNS name and test it in a chrome -> we will get our application and the entered data is stored in EBS 
+
+-> kubectl exec -it mysql-1 -- bash 
+-> mysql -u root -pExpenseApp@1 
+-> show databases;
+-> use transactions;
+-> show tables;
+-> select * from transactions; 
+
+-> kubectl exec -it mysql-0 -- bash 
+-> mysql -u root -pExpenseApp@1 
+-> show databases;
+-> use transactions;
+-> show tables;
+-> select * from transactions; (Here the data is not there, it is not replicated)
+
+-> search for mysql run a replicated stateful application
+-> we have to configure 
