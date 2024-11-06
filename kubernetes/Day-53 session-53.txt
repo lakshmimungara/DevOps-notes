@@ -1,0 +1,773 @@
+Day-53 session-53(04/11/2024)
+----------------------------
+create a cluster before doing anything 
+
+namespace
+pods
+secrets
+configmaps
+PV 
+PVC 
+SC
+deployements 
+replicaset
+statefulset 
+
+Now in today's class 
+--------------------
+HPA (Horizontal pod autoscaling)
+Helm charts
+
+Scaling is two types - important for interviews
+--------------------
+1. Horizontal 
+2. Vertical 
+
+for examples:
+---------------
+vertical --> only one building , downtime is there
+ 
+-> vertical scaling is like, constructing on same building different floors but it has disadvatage -> it may collapse at any time if it is a old building 
+
+Horizontal --> multiple buildings, no downtime 
+
+-> Horizontal scaling is like, constructing a houses when we have different space and utilizing the space 
+
+-> when compared to vertical and horizontal -> horizontal is better option 
+-> most of the pros are for horizontal scaling only 
+
+If there is a server, when the traffic gets increased, we have two options 
+-> same server - stop the server, increase CPU and RAM then restart -> we have downtime here -> vertical scaling 
+-> Increasing the resources in the same server 
+
+-> different server - no.of servers increases based on traffic -> we have no downtime here -> horizontal scaling 
+-> creating multiple servers with zero down time 
+
+HPA -> Horizontal pod autoscaling 
+
+when we want to measure the units that is based on percentage -> by max value (100)
+
+-> containers can consume all servers resources if something goes wrong. we have to mention resource requests and limits 
+
+100m --> CPU 
+60m --> 60% 
+
+before setting HPA, we should have two conditions
+1. you should have metrics server installed 
+2. you should mention resources section inside pod 
+
+-> Once above conditions met,you can attach HPA to deployement
+
+top command -> displays CPU utilization and consumption 
+
+To know the CPU utilization and consumption of memory:
+-----------------------------------------------
+kubectl top pods 
+
+we have to install metrics server 
+=> Metric server - it watches all the pods and tells which pod is using how musch CPU and memory 
+-> search for kubernetes metrics server installation
+-> kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+-> kubectl get pods -n kube-system 
+-> cd expense-k8 
+-> kubectl apply -f namespace.yaml 
+-> cd mysql 
+-> kubectl apply -f manifest.yaml 
+-> kubens expense 
+-> kubectl top pods 
+
+In expense-k8 folder and in backend 
+
+-> we are not doing for mysql, becoz HPA works for only stateless applications. where mysql is a stateful application
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: mahalakshmi2997/backend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+	
+
+	
+we have to install k9s tool
+-> search for k9s installation 
+-> curl -sS https://webinstall.dev/k9s | bash
+
+-> In a duplicate tab type "k9s" -> one UI gets open
+-> l - for logs 
+-> d - describe 
+-> ctrl d - for deletion 
+-> shift + : -> for different resources or different namespaces
+-> : + service -> for different services
+-> type 2 -> default namespace 
+-> type 1 -> for expense namespace 
+
+-> kubectl apply -f manifest.yaml 
+
+-> we will get percentage for backend in k9s UI 
+
+Do the same for frontend 
+-------------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: mahalakshmi2997/frontend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+	
+-> kubectl apply -f manifest.yaml 
+-> It displays the percentage in k9s UI 
+
+-> when you want to increase the replicas dynamically we can use HPA 
+-> How do you scale a pod -> HPA - important for interviews 
+
+Now HPA(Horizontal pod autoscaling)
+-----------------------------------
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: mahalakshmi2997/backend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: backend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: backend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+ 
+-> kubectl apply -f manifest.yaml
+-> kubectl get hpa 
+
+Do the same for frontend 
+---------------------------
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: mahalakshmi2997/frontend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: frontend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: frontend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+
+-> -> kubectl apply -f manifest.yaml
+-> kubectl get hpa 
+shif+: hpa
+shift+: pods  
+
+To check if it is working or  not 
+--------------------------------------
+we have to install apache bench CLI
+-> search for apache bench install 
+-> sudo dnf install httpd-tools -y 
+
+-> search for apache bench usgage in chrome -> this is a command 
+-> ab --help 
+
+-> kuebctl get svc 
+-> open loadbalancer in AWS and check for target instances if there are in-use or not 
+-> Access our application with the DNS in chrome 
+
+-> Now we have to increase the load 
+-> cd 
+-> ab -n 5000 -c 100 -s 60 <url - this is DNS value in loadbalancer:80/>
+
+-> HPA increases the no.of pods if load increases
+-> only frontend gets increased 
+-> this is how we can use HPA to scale the no.of pods based on the CPU utilization
+
+-> cd expense-k8/mysql
+-> kubectl delete -f manifest.yaml
+-> cd ../backend/
+-> kubectl delete -f manifest.yaml
+-> cd ../frontend/
+-> kubectl delete -f manifest.yaml
+
+
+Helm charts  - important for interviews
+----------------------------------------
+
+-> Helm charts is a package manager for kubernetes applications 
+
+Generally we have a two steps for docker and kubernetes. they are, 
+1. image creation -> Dockerfile 
+2. how to run image -> Docker compose/manifest 
+
+popular tools have opensource images and opensource manifest also 
+
+two uses:
+-----------
+1. To templatise manifest files 
+2. To install custom or popular applications in kubernetes like CSI drivers, metrics servers, prometherus/grafana 
+
+-> create a folder -> helm-expense
+-> create a new repo with the same name 
+
+sub-folder -> nginx 
+
+First, we have to install helm 
+-> search for install helm 
+-> make sure you should not be in git and come out of it and do the steps 
+-> curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+-> chmod 700 get_helm.sh
+-> ./get_helm.sh
+-> helm version 
+
+In nginx folder 
+
+===========
+Chart.yaml 
+===========
+
+apiVersion: v1 
+name: nginx 
+version: 0.0.1 
+description: This chart is to manage nginx application
+
+subfolder - templates
+
+================
+deployement.yaml 
+================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels: # these are replicaset labels
+    app: nginx
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      tier: frontend
+      app: nginx
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        tier: frontend
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        # this is called as placeholder
+        image: nginx:{{ .Values.deployment.imageVersion }}
+		
+=============
+service.yaml 
+==============
+
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    tier: frontend
+    app: nginx
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: {{ .Values.service.port }} # service port
+    targetPort: 80 # container port
+
+
+===========
+values.yaml
+============
+deployment:
+	imageVersion: latest 
+	replicas: 2 
+service:
+	port: 80 
+	type: LoadBalancer
+
+
+To install helm charts - helm install <chart-name> . -> . represents there is Chart.yaml in current folder 
+
+-> helm install nginx . 
+-> helm list 
+
+===========
+values.yaml
+============
+deployment:
+	imageVersion: stable-perl
+	replicas: 4
+service:
+	port: 80 
+	type: LoadBalancer
+	
+-> helm upgrade nginx . 
+-> helm list
+-> helm history nginx
+
+-> everytime when you upgrade the versions, you have to change the Chart version also 
+
+===========
+Chart.yaml 
+===========
+
+apiVersion: v1 
+name: nginx 
+version: 0.0.2 
+description: This chart is to manage nginx application
+
+===========
+values.yaml
+============
+deployment:
+	imageVersion: alpine
+	replicas: 4
+service:
+	port: 80 
+	type: LoadBalancer
+	
+-> helm upgrade nginx . 
+-> helm list
+-> helm history nginx
+
+-> if you changed the version but the application gets failed. Then we have to rollback to the previous version 
+
+-> helm rollback nginx 
+-> helm history nginx 
+
+-> helm rollback nginx 1
+-> helm history nginx 
+
+-> so, like this we can templatise the helm 
+
+To uninstall the helm:
+----------------------
+-> helm uninstall nginx 
+
+
+we can install the ebs-csi drivers by using helm 
+-------------------------------------------------
+
+-> helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+
+-> helm repo list 
+-> helm repo update
+
+Install the latest release of the driver.
+------------------------------------------
+helm upgrade --install aws-ebs-csi-driver \
+    --namespace kube-system \
+    aws-ebs-csi-driver/aws-ebs-csi-driver
+	
+-> kubectl get pods -n kube-system
+-> helm list -n kube-system
+-> helm uninstall aws-ebs-csi-driver -n kube-system
+-> helm list -n kube-system
+
+In helm-expense folder, create a sub-folder mysql 
+
+Chart.yaml 
+============
+
+apiVersion: v1
+name: mysql
+version: 0.0.1
+description: This chart is to manage mysql application
+
+values.yaml 
+=============
+deployment:
+  imageVersion: v1
+  
+In sub-folder templates
+
+manifest.yaml 
+==============
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: expense
+  labels:
+    app: mysql
+    tier: db
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mysql
+      tier: db
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: mysql
+        tier: db
+        project: expense
+    spec:
+      containers:
+      - name: mysql
+        image: mahalakshmi2997/mysql:{{ .Values.deployment.imageVersion }}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql
+  namespace: expense
+spec:
+  selector:
+    app: mysql
+    tier: db
+    project: expense
+  ports:
+  - name: mysql-port
+    protocol: TCP
+    port: 3306 # service port
+    targetPort: 3306 # container port
+
+-> cd mysql/
+-> kubens expense 
+-> ls -l
+-> helm install mysql . 
+
+
+create a sub-folder backend 
+
+Chart.yaml 
+=============
+
+apiVersion: v1
+name: backend
+version: 0.0.1
+description: This chart is to manage backend application
+
+
+values.yaml 
+=============
+
+deployment:
+  imageVersion: v1
+hpa:
+  cpuUtilization: 20
+
+create a sub-folder in backend called templates 
+
+manifest.yaml 
+=============
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: mahalakshmi2997/backend:{{ .Values.deployment.imageVersion }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: backend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: backend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: {{ .Values.hpa.cpuUtilization }} # usually 75 in real environment
+
+
+-> cd ../backend/
+-> kubens expense 
+-> ls -l
+-> helm install backend . 
+
+There are two level autoscaling
+1. pod level 
+2. server level 
+
+-> make sure you delete the cluster 

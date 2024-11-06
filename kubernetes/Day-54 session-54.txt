@@ -1,0 +1,136 @@
+Day-54 session-54(05/11/2024)
+-----------------------------
+
+Recap 
+------
+Horizontal and vertical scaling 
+we should have metric server running
+
+now in today's class 
+--------------------
+In helm-expense folder and create a sub-folder frontend 
+
+Chart.yaml 
+==========
+
+apiVersion: v1
+name: frontend
+version: 0.0.1
+description: This chart is to manage frontend application
+
+
+values.yaml 
+===========
+
+deployment:
+  replicas: 2
+  imageVersion: 2
+hpa:
+  cpuUtilization: 15
+
+
+sub-folder templates 
+
+deployment.yaml 
+================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: mahalakshmi2997/frontend:{{ .Values.deployment.imageVersion }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+
+
+service.yaml 
+===============
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+
+hpa.yaml 
+=========
+
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: frontend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: frontend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: {{ .Values.hpa.cpuUtilisation }}
+
+
+-> aws eks update-kubeconfig --region us-east-1 --name expense 
+-> kubectl get nodes 
+-> cd helm-expense/
+-> git pull
+-> kubens expense 
+-> kubectl create namespace expense 
+-> cd mysql/
+-> helm install mysql . 
+-> helm list 
+-> cd ../backend/ 
+-> helm install backend . 
+-> cd ../frontend/ 
+-> helm install frontend . 
+-> kubectl get pods 
+-> kubectl get pods -n kube-system 
+
+-> vim eks.yaml 
+-> comment out the spot=true 
+
+
+1. EKS cluster --> creation is this one 
+2. EKS node group --> second this one 
+
+Reasons behind not able to delete the secuirty group 
+1. It may be attached to some instances 
+2. It may be referred in another security group
