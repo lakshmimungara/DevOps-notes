@@ -1,0 +1,861 @@
+Day-56 session-56 (07/11/2024)
+------------------------------
+
+Recap:
+-----
+RBAC - RoleBased access control
+
+-> IN RBAC, main objects are Role, rolebinding, clusterrole and clusterrolebinding
+
+1. make sure IAM user exist and he have cluster describe access 
+2. create role and rolebinding 
+3. edit aws-auth configmap 
+
+Now in today's class 
+----------------------
+Taints and tolerations:
+--------------------------
+taint --> paint 
+
+example: 
+-> banks and RBI may accept painted notes -> it means they can tolerate (tolerate in the sense excuse)
+
+-> you can taint the node(it means it is polluted). for suppose if you tainted any node, then kube-scheduler will not schedule any pod inside that node 
+-> kube-scheduler cannot schedule any pod in that node 
+-> GPU based servers are required for expense project 
+-> taint these GPU nodes 
+-> expense project users should give toleration in their manifest files 
+-> tolerations are written by users in expense project 
+-> manily taints and tolerations means rejecting that other project related pods  are not allowed to nodes 
+
+-> Taints are opposite -> they allow a node to repel a set of pods 
+-> Tolerations are applied to pods. Tolerations allow the scheduler to schedule pods with matching taints 
+-> Tolerations allow scheduling but don't guarantee scheduling 
+
+kube-scheduler -->  responsible to schedule pods on to worker nodes 
+
+nodeSelector:
+	label-key: value
+	
+taints and tolerations --> to repel the pods. we can mark the node as tainted so that scheduler will not schedule any pods on to it 
+
+If you apply tolerate scheduler can schedule the pods on to tainted nodes, but not guaranted 
+
+Use cases:
+-----------
+1. project specific worker nodes 
+2. special hardware. GPU based servers 
+
+create a folder -> k8-selectors 
+
+readme.md 
+=========
+
+# Selectors
+
+Taint the node
+
+```
+kubectl taint nodes ip-192-168-2-237.ec2.internal hardware=gpu:NoSchedule
+```
+
+
+-> kubectl get nodes 
+-> kubectl taint nodes ip-192-168-2-237.ec2.internal hardware=gpu:NoSchedule
+
+
+01-tolerations.yaml 
+====================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+	
+kubectl apply -f 01-tolerations.yaml
+kubectl get pods -o wide 
+kubectl describe node ip-192-168-2-237.ec2.internal
+kubectl delete -f 01-tolerations.yaml
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+  tolerations:
+  - key: "hardware"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+    
+kubectl apply -f 01-tolerations.yaml
+kubectl get pods -o wide 
+
+In readme.md 
+--------------
+
+# Selectors
+
+Taint the node
+
+```
+kubectl taint nodes ip-192-168-2-237.ec2.internal hardware=gpu:NoSchedule
+```
+
+Label node
+
+```
+kubectl label nodes ip-192-168-2-237.ec2.internal hardware=gpu
+```
+
+kubectl label nodes ip-192-168-2-237.ec2.internal hardware=gpu
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+  nodeSelector:
+    hardware: gpu
+  tolerations:
+  - key: "hardware"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+    
+
+kubectl apply -f 01-tolerations.yaml
+kubectl get pods -o wide  (it runs on tainted node)
+kubectl describe pod nginx 
+
+Affinity is like attract 
+
+02-affinity.yaml 
+------------
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  affinity:
+    nodeAffinity:
+      # hard ware
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: hardware
+            operator: In
+            values:
+            - gpu
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+  # nodeSelector:
+  #   hardware: gpu
+  tolerations:
+  - key: "hardware"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+    
+	
+requiredDuringSchedulingIgnoredDuringExecution -> The scheduler can't schedule the Pod unless the rule is met 
+
+
+-> kubectl label nodes ip-192-168-2-237.ec2.internal hardware=gpu
+-> kubectl delete -f 01-tolerations.yaml 
+-> kubectl apply -f 02-affinity.yaml 
+-> kubectl get pods -o wide
+-> kubectl get nodes 
+-> kubectl taint nodes ip-192-168-2-237.ec2.internal hardware=gpu:NoSchedule
+-> kubectl label nodes ip-192-168-2-237.ec2.internal hardware=gpu
+-> kubectl delete -f 01-tolerations.yaml
+-> kubectl apply -f 02-affinity.yaml 
+-> kubectl get pods -o wide
+
+
+03-affinity.yaml 
+-----------------
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  affinity:
+    nodeAffinity:
+		# soft rule 
+		preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 1
+        preference:
+          matchExpressions:
+          - key: another-node-label-key
+            operator: In
+            values:
+            - another-node-label-value
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+  # nodeSelector:
+  #   hardware: gpu
+  tolerations:
+  - key: "hardware"
+    operator: "Equal"
+    value: "gpu"
+    effect: "NoSchedule"
+    
+	
+	
+preferredDuringSchedulingIgnoredDuringExecution --> soft rule 
+
+
+-> kubectl delete -f 02.affinity.yaml 
+-> kubectl apply -f 03-affinity.yaml 
+-> kubectl get pods -o wide 
+
+pod affinity 
+-------------
+one pod likes another pod 
+
+04-pod-affinity.yaml
+====================
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+spec:
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+    
+-> kubectl delete -f 03-affinity.yaml 
+-> kubectl apply -f 04-pod-affinity.yaml 
+-> kubectl get pods -o wide 
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+spec:
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-2
+  labels:
+	purpose: affinity
+spec:
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: purpose
+            operator: In
+            values:
+            - affinity
+        topologyKey: topology.kubernetes.io/zone
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+    
+-> kubectl apply -f 04-pod-affinity.yaml 
+-> kubectl get pods -o wide 
+-> kubectl describe pod pod-2
+
+-> pod-affinity -> it goes where you have given 
+
+pod-inaffinity 
+===============
+It goes other than what you have given 
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+  labels:
+    purpose: affinity
+spec:
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-2
+spec:
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: purpose
+            operator: In
+            values:
+            - affinity
+        topologyKey: topology.kubernetes.io/zone
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-3
+spec:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: purpose
+            operator: In
+            values:
+            - affinity
+        topologyKey: topology.kubernetes.io/zone
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+    
+-> kubectl apply -f 04-pod-affinity.yaml 
+-> kubectl get pods -o wide 
+
+
+-> Hitting DB is an expensive process everytime 
+-> for suppose, we have an products list and everytime it doesn't change. It's takes time to get the product details everytime. So, becoz, of this latency may increases 
+
+-> Generally, everyone keeps the cache. so that everytime we cannot hit the DB
+-> First, backend gets the request from DB and keep it in a cache and if someone request again then it checks in cache and then results goes fast 
+-> By this, we can reduce the latency 
+
+-> for suppose, backend pod is in one node and cache is in another node. Then traffic comes from backend pod and then node of the backend pod and enters into cache's node and last it enters into cache pod 
+-> This may increases the latency 
+
+what if the backend pod and cache are in same node? 
+A) then we can reduce the latency 
+
+
+-> First cache pod runs and we will inform backend pod to run where cache is runnig. Then latency get reduced -> so, this is called as pod-affinity 
+
+let us take 2 replicas(i.e two backend pods and two cache's)
+-> if cache is running in one node and what if we want that cache run at different place -> then that is called as anti-affinity 
+
+
+Practical Use-case 
+==================
+-> Inter-pod affinity and anti-affinity can be even more useful when tehy are used with higher level collections such as RelicaSets, StatefulSets, Deployments, etc. 
+
+
+05-use-case.yaml 
+=================
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cache
+spec:
+  selector:
+    matchLabels:
+      app: store
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: store
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - store
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: redis-server
+        image: redis:3.2-alpine
+
+
+-> kubectl delete -f 04-pod-affinity.yaml 
+
+-> we have tainted one node. If the node is running we have to untaint that node 
+
+Untaint 
+---------
+-> kubectl taint nodes ip-192-168-2-237.ec2.internal hardware=gpu:NoSchedule- 
+
+-> kubectl apply -f 05-use-case.yaml 
+-> kubectl get pods -o wide 
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cache
+spec:
+  selector:
+    matchLabels:
+      app: store
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: store
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - store
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: redis-server
+        image: redis:3.2-alpine
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+spec:
+  selector:
+    matchLabels:
+      app: web-store
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: web-store
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - web-store
+            topologyKey: "kubernetes.io/hostname"
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - store
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: web-app
+        image: nginx:1.16-alpine
+		
+-> kubectl apply -f 05-use-case.yaml 
+-> kubectl get pods -o wide
+
+
+what is called pod-affinity? --> important for interviews 
+-----------------------------------------------
+A) pod-affinity is second pod runs where the first pod is running. second pod likes the first pod 
+-> we can match labels of first pod into the second pod . so that we make sure second pod is running where the first pod is running 
+-> Anti-affinity is opposite, second pod will not run where the first pod is running 
+
+
+Ingress controller  --> important for interviews 
+-------------------------------------------------
+-> Ingress controller is ntng but a load balancer 
+-> If we want give interent access to our app running in K8 we have to provision ingress controller.we are using ALB as our ingress controller. we installed aws load balancer controller drivers through helm charts and given appropriate permissions 
+
+-> we create ingress resource/object for the apps that requires external access 
+
+HDFC --> k8 cluster 
+
+netbanking.hdfc.com --> netbanking
+corporatebanking.hdfc.com --> corporatebanking
+
+classic LB --> By default itcreates classic load balancer 
+-> It is not intelligent 
+-> It can't route traffic to different target groups 
+-> It is not recommended by AWS 
+
+ALB 
+----
+-> It is intelligent 
+-> It routes traffic to multiple target group based on host or context rules 
+-> It works on layer 7 
+
+
+create a folder k8-ingress 
+
+readme.md 
+=========
+
+# Ingress Controller
+
+```
+eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster expense \
+    --approve
+```
+
+```
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+```
+
+```
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+```
+
+```
+eksctl create iamserviceaccount \
+--cluster=expense \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+```
+
+```
+helm repo add eks https://aws.github.io/eks-charts
+```
+
+```
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+```
+
+-> ALB is an external component. if we want to connect the EKS and ALB we need helm drivers 
+
+-> AWS calls Ingress controller as AWSLoadBalancerControllerIAMPolicy 
+
+How you setup Ingress controller and what is ingress controller? -> important for interviews 
+------------------------------------------------
+-> The purpose of Ingress controller is to provide internet to our applications in kubernetes 
+-> we are using EKS cluster and we have ALB as our ingress controller
+-> As part of the setup, we provided the oidc provider and created AWS policies 
+
+-> If we want give interent access to our app running in K8 we have to provision ingress controller. we are using ALB as our ingress controller. we installed aws load balancer controller drivers through helm charts and given appropriate permissions 
+
+make sure you run the above commands out of the git 
+
+-> eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster expense \
+    --approve
+	
+-> curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+
+-> aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+	
+-> eksctl create iamserviceaccount \
+--cluster=expense \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+
+-> helm repo add eks https://aws.github.io/eks-charts
+
+-> helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+
+-> kubectl get pods -n kube-system 
+
+
+-> https://app1.daws81s.fun --> app1 
+-> https://app2.daws81s.fun --> app2
+
+ 
+In sub-folder app1 
+
+Dockerfile
+===========
+
+FROM nginx:alpine
+RUN rm -rf /usr/share/nginx/html/index.html
+RUN echo "<h1>Hello, I am from APP-1</h1>" > /usr/share/nginx/html/index.html
+
+-> cd k8-ingress/app1 
+-> docker build -t mahalakshmi2997/app1:v1 . 
+-> docker login -u mahalakshmi2997 
+-> docker push mahalakshmi2997/app1:v1 
+
+
+manifest.yaml 
+==============
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  labels: # these are replicaset labels
+    name: app1
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 1
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      name: app1
+      tier: frontend
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        name: app1
+        tier: frontend
+    spec:
+      containers:
+      - name: app1
+        image: mahalakshmi2997/app1:v1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: app1
+spec:
+  selector:
+    name: app1
+    tier: frontend
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+
+-> kubectl apply -f manifest.yaml 
+-> kubectl get pods 
+-> kubectl delete -f ../../k8-selectors/05-use-case.yaml 
+	
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  labels: # these are replicaset labels
+    name: app1
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 1
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      name: app1
+      tier: frontend
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        name: app1
+        tier: frontend
+    spec:
+      containers:
+      - name: app1
+        image: mahalakshmi2997/app1:v1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: app1
+spec:
+  selector:
+    name: app1
+    tier: frontend
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: app1
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:315069654700:certificate/eefec79d-8012-4e7e-a530-baf154b833f2 (here we have to create one certificate manually)
+      alb.ingress.kubernetes.io/listen-ports: '[ {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+      alb.ingress.kubernetes.io/group.name: expense
+spec:
+    rules:
+    - host: "app1.daws81s.fun"
+      http:
+        paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              name: app1
+              port:
+                number: 80
+
+
+-> Go to AWS 
+-> certificate Manager 
+-> click on request 
+-> request for public certificate 
+-> fully qualified domain name -> *.daws81s.fun 
+-> click on request 
+
+Now we need to create route53 records
+-> click on create records in Route53
+
+  
+-> kubectl apply -f manifest.yaml 
+-> kubectl get ingress (we will get the load balancer DNS value)
+-> kubectl get pods -o wide 
+
+Now we have to create route53 
+---------------------------------
+-> Record name -> app1.daws81s.fun 
+-> Alias 
+	-> Route traffic to -> Alias to application and classic load balancer 
+	-> region -> Us-east(N.virginia)
+	-> select the load balancer DNS value 
+-> click on create 
+	
+-> check the application, https://app1.daws81s.fun 
+
+
+In sub-folder app2 
+
+Dockerfile
+==========
+FROM nginx:alpine
+RUN rm -rf /usr/share/nginx/html/index.html
+RUN echo "<h1>Hello, I am from APP-2</h1>" > /usr/share/nginx/html/index.html
+
+manifest.yaml 
+==============
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app2
+  labels: # these are replicaset labels
+    name: app2
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 1
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      name: app2
+      tier: frontend
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        name: app2
+        tier: frontend
+    spec:
+      containers:
+      - name: app2
+        image: mahalakshmi2997/app2:v1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: app2
+spec:
+  selector:
+    name: app2
+    tier: frontend
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: app2
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:315069654700:certificate/eefec79d-8012-4e7e-a530-baf154b833f2
+      alb.ingress.kubernetes.io/listen-ports: '[ {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+      alb.ingress.kubernetes.io/group.name: expense
+spec:
+    rules:
+    - host: "app2.daws81s.fun"
+      http:
+        paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              name: app2
+              port:
+                number: 80
+
+
+-> cd ../app2/ 
+-> docker build -t mahalakshmi2997/app2:v1 . 
+-> docker push mahalakshmi2997/app2
+
+-> kubectl apply -f manifest.yaml 
+-> kubectl get ingress 
+
+
+make sure you delete the cluster 
+
+
