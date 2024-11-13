@@ -1,0 +1,894 @@
+Day-57 session-57(11/11/2024)
+-----------------------------
+Revising Ingress controller -> important for interviews
+----------------------------
+-> Ingress controller is used to provide external access to the applications running inside k8. In EKS we can use ALB as ingress controller 
+
+-> We install aws load balancer controller to connect with ALB and provide permissions to EKS 
+
+-> we have a resource called ingress to create ALB, Listeners, rules and target groups 
+
+-> eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster expense \
+    --approve
+	
+-> curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+
+-> aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+	
+-> eksctl create iamserviceaccount \
+--cluster=expense \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::169810528182:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+
+-> helm repo add eks https://aws.github.io/eks-charts
+
+-> helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+
+-> helm list -n kube-system
+-> kubectl get pods -n kube-system
+
+
+Difference between labels vs annotations 
+-----------------------------------------
+labels - It have limited length and special characters are not allowed.
+-> Labels are used to select the kubernetes internal resources 
+
+annotations - It has no certain limits and we can use special characters
+-> annotations are  used to select the external resources like ingress controller 
+-> we can keep some metadata like buildURL 
+
+-> cd k8-ingress/
+-> kubectl apply -f app1/manifest.yaml 
+-> kubectl delete -f app1/manifest.yaml 
+
+In k8-ingress -> app1 -> manifest.yaml 
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  labels: # these are replicaset labels
+    name: app1
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 1
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      name: app1
+      tier: frontend
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        name: app1
+        tier: frontend
+    spec:
+      containers:
+      - name: app1
+        image: mahalakshmi2997/app1:v1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: app1
+spec:
+  selector:
+    name: app1
+    tier: frontend
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: app1
+    annotations:
+      #kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:315069654700:certificate/eefec79d-8012-4e7e-a530-baf154b833f2
+      alb.ingress.kubernetes.io/listen-ports: '[ {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+      alb.ingress.kubernetes.io/group.name: expense
+spec:
+    ingressClassName: alb
+    rules:
+    - host: "app1.daws81s.online"
+      http:
+        paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              name: app1
+              port:
+                number: 80
+				
+
+In app2 -> manifest.yaml 
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app2
+  labels: # these are replicaset labels
+    name: app2
+    tier: frontend
+spec:
+  # modify replicas according to your case
+  replicas: 1
+  selector:
+    # these are used to select the pod to create replicas
+    matchLabels:
+      name: app2
+      tier: frontend
+  # this is pod definition
+  template:
+    metadata:
+      # these labels belongs to pod
+      labels:
+        name: app2
+        tier: frontend
+    spec:
+      containers:
+      - name: app2
+        image: mahalakshmi2997/app2:v1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: app2
+spec:
+  selector:
+    name: app2
+    tier: frontend
+  ports:
+  - name: nginx-svc-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: app2
+    annotations:
+      #kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:315069654700:certificate/eefec79d-8012-4e7e-a530-baf154b833f2
+      alb.ingress.kubernetes.io/listen-ports: '[ {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
+      alb.ingress.kubernetes.io/group.name: expense
+spec:
+    ingressClassName: alb
+    rules:
+    - host: "app2.daws81s.online"
+      http:
+        paths:
+        - pathType: Prefix
+          path: "/"
+          backend:
+            service:
+              name: app2
+              port:
+                number: 80
+				
+
+-> kubectl apply -f app1/manifest.yaml
+-> kubectl get ingress (we will get the load balancer DNS value)
+
+-> By using the DNS value, we have to create route53 record 
+
+-> In route53, create a record 
+-> record name -> app1.daws81.fun 
+-> Alias 
+	Route traffic to -> Alias to application and classic load balancer 
+	Region -> US-east(N virginia)
+	select the DNS value 
+
+-> kubectl get pods 
+-> check the application in chrome -> https://app1.daws81s.fun 
+-> check the load balancer and target groups as well 
+
+
+Now app2, 
+-> kubectl apply -f app2/manifest.yaml 
+
+-> we will get app2 related listener rule in load balancer and target groups 
+-> create a record for app2 also
+-> In route53, create a record 
+-> record name -> app2.daws81.fun 
+-> Alias 
+	Route traffic to -> Alias to application and classic load balancer 
+	Region -> US-east(N virginia)
+	select the DNS value 
+
+-> check the application in chrome -> https://app2.daws81s.fun 
+
+
+
+liveness probe and readiness probe 
+-----------------------------------
+
+One of the feature of kuberenetes is self healing - It means auto restart 
+-> If your application is not working, kubernetes can auto restart your application
+
+How would kuberenetes know that the application is working or not?
+A) This is through liveness probe and readiness probe
+
+-> liveness probe --> health check 
+-> readiness probe --> ready to accept traffic 
+
+
+-> when port 8080is opened, then we can say mysql is ready 
+-> when the application gets ready, two things are important. They are; 
+1. mentioning the resources 
+2. configuring the liveness probe and readiness probe 
+
+
+
+In expense-k8 -> mysql -> manifest.yaml 
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: expense
+  labels:
+    app: mysql
+    tier: db
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mysql
+      tier: db
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: mysql
+        tier: db
+        project: expense
+    spec:
+      containers:
+      - name: mysql
+        image: mahalakshmi2997/mysql:v1
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql
+  namespace: expense
+spec:
+  selector:
+    app: mysql
+    tier: db
+    project: expense
+  ports:
+  - name: mysql-port
+    protocol: TCP
+    port: 3306 # service port
+    targetPort: 3306 # container port
+
+
+-> cd expense-k8/ 
+-> kubectl apply -f namespace.yaml 
+-> kubens expense 
+-> cd mysql/ 
+-> kubectl apply -f manifest.yaml 
+-> kubectl get pods 
+
+In backend -> manifest.yaml 
+
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: mahalakshmi2997/backend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: backend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: backend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+
+
+-> cd ../backend/
+-> kubectl apply -f manifest.yaml 
+-> kubectl get pods 
+
+
+init containers 
+----------------
+-> Before backend starts, we need to make sure DB is running and accessable 
+
+-> we can run init containers before main containers run. It can be one or many 
+-> init containers should be ready before main containers runs 
+-> If init containers fails, main container will not run 
+-> init containers goes to completion state 
+-> To set configuration and check external dependency applications status, we can make use of init containers
+
+example:
+----------
+for i in {1..100}; do sleep 1; if nslookup mysql; then exit 0; fi;done;exit 1 
+
+In backend -> manifest.yaml 
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      initContainers:
+      - name: mysql-check
+        image: busybox:1.28
+        command: ['sh', '-c', "until nslookup mysql; do echo waiting for myservice; sleep 2; done"]
+      containers:
+      - name: backend
+        image: mahalakshmi2997/backend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 3
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: backend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: backend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+
+-> kubectl delete -f manifest.yaml 
+-> kubectl apply -f manifest.yaml 
+-> kubectl get pods 
+
+How to use configMap as volume?
+---------------------------------
+application code and configuration are independent 
+
+
+In frontend -> manifest.yaml 
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend
+  namespace: expense
+data:
+  nginx.conf: | # | represents multi line file
+    user www-data;
+    worker_processes 4;
+    pid /var/run/nginx.pid;
+
+    events {
+      worker_connections 768;
+      # multi_accept on;
+    }
+
+    http {
+
+      ##
+      # Basic Settings
+      ##
+
+      sendfile on;
+      tcp_nopush on;
+      tcp_nodelay on;
+      keepalive_timeout 65;
+      types_hash_max_size 2048;
+      large_client_header_buffers 6 32k;
+      client_max_body_size 100m;
+
+      # server_names_hash_bucket_size 64;
+      # server_name_in_redirect off;
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+
+      ##
+      # Logging Settings
+      ##
+      access_log /var/log/nginx/access.log;
+      error_log /var/log/nginx/error.log debug; # change from debug to warn or error for production
+
+      ##
+      # Gzip Settings
+      ##
+      gzip on;
+      gzip_disable "msie6";
+
+      ##
+      # Virtual Host Configs
+      ##
+
+      include /etc/nginx/conf.d/*.conf;
+      include /etc/nginx/sites-enabled/*;
+
+      server {
+        listen       80;
+        server_name  localhost;
+
+        proxy_http_version 1.1;
+
+        #charset koi8-r;
+        #access_log  /var/log/nginx/host.access.log  main;
+        #error_log /dev/stdout debug;
+        #rewrite_log on;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+            ssi    on;
+        }
+
+        location /images/ {
+            expires 5s;
+            root   /usr/share/nginx/html;
+            try_files $uri /images/placeholder.png;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+
+        location /api/ { 
+            proxy_pass http://backend:8080/;
+        }
+
+        }
+
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: mahalakshmi2997/frontend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: frontend
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: frontend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: frontend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+
+
+-> cd ../frontend/ 
+-> kubectl apply -f manifest.yaml 
+-> kubectl get configmap 
+-> kubectl get deployments 
+-> kubectl get pods 
+-> kubectl describe pod <pod-name>
+-> kubectl exec -it <pod-name> -- bash 
+-> cd /etc/nginx/
+-> cat nginx.conf 
+
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend
+  namespace: expense
+data:
+  nginx.conf: | # | represents multi line file
+    user www-data;
+    worker_processes 4;
+    pid /var/run/nginx.pid;
+
+    events {
+      worker_connections 768;
+      # multi_accept on;
+    }
+
+    http {
+
+      ##
+      # Basic Settings
+      ##
+
+      sendfile on;
+      tcp_nopush on;
+      tcp_nodelay on;
+      keepalive_timeout 65;
+      types_hash_max_size 2048;
+      large_client_header_buffers 6 32k;
+      client_max_body_size 100m;
+
+      # server_names_hash_bucket_size 64;
+      # server_name_in_redirect off;
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+
+      ##
+      # Logging Settings
+      ##
+      access_log /var/log/nginx/access.log;
+      error_log /var/log/nginx/error.log debug; # change from debug to warn or error for production
+
+      ##
+      # Gzip Settings
+      ##
+      gzip on;
+      gzip_disable "msie6";
+
+      ##
+      # Virtual Host Configs
+      ##
+
+      include /etc/nginx/conf.d/*.conf;
+      include /etc/nginx/sites-enabled/*;
+
+      server {
+        listen       80;
+        server_name  localhost;
+
+        proxy_http_version 1.1;
+
+        #charset koi8-r;
+        #access_log  /var/log/nginx/host.access.log  main;
+        #error_log /dev/stdout debug;
+        #rewrite_log on;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+            ssi    on;
+        }
+
+        location /images/ {
+            expires 5s;
+            root   /usr/share/nginx/html;
+            try_files $uri /images/placeholder.png;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+        # this is as part of nginx configmap
+        location /api/ { 
+            proxy_pass http://backend:8080/;
+        }
+
+        }
+
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: mahalakshmi2997/frontend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: frontend
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: frontend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: frontend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+ 
+-> kubectl apply -f manifest.yaml
+-> kubectl get pods 
+-> kubectl delete pod <pod-1> <pod-2>
+-> kubectl get pods 
+-> kubectl exec -it <pod-name> -- bash 
+-> cd /etc/nginx/
+-> cat nginx.conf 
+
+

@@ -1,0 +1,844 @@
+Day-58 session-58 (13/11/2024)
+-------------------------------
+
+we use terraform to create cluster and upgrade 
+
+1. we will create cluster 
+2. we will run application 
+3. we will upgrade cluster 
+-> This is an admin activity 
+
+-> In AWS account and in our expense VPC, we have three subnets - private, public and database
+-> EKS cluster and nodes are always in private subnet 
+-> we can have any number of nodes -> this is node group 
+-> traffic comes from route53 -> to load balancer -> to worker nodes -> to RDS (i.e database)
+-> Bastion host can be in public subnet 
+
+
+create a folder -> terraform-aws-eks 
+
+sub-folder -> 00-vpc
+
+parameters.tf 
+==============
+
+resource "aws_ssm_parameter" "vpc_id" {
+  name  = "/${var.project_name}/${var.environment}/vpc_id"
+  type  = "String"
+  value = module.vpc.vpc_id
+}
+
+resource "aws_ssm_parameter" "public_subnet_ids" {
+  name  = "/${var.project_name}/${var.environment}/public_subnet_ids"
+  type  = "StringList"
+  value = join(",", module.vpc.public_subnet_ids)
+}
+
+resource "aws_ssm_parameter" "private_subnet_ids" {
+  name  = "/${var.project_name}/${var.environment}/private_subnet_ids"
+  type  = "StringList"
+  value = join(",", module.vpc.private_subnet_ids)
+}
+
+resource "aws_ssm_parameter" "database_subnet_ids" {
+  name  = "/${var.project_name}/${var.environment}/database_subnet_ids"
+  type  = "StringList"
+  value = join(",", module.vpc.database_subnet_ids)
+}
+
+
+provider.tf 
+============
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state"
+    key    = "expense-vpc"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+variables.tf
+=============
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "vpc_cidr" {
+    default = "10.0.0.0/16"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+variable "public_subnet_cidrs" {
+    default = ["10.0.1.0/24", "10.0.2.0/24"]
+}
+
+variable "private_subnet_cidrs" {
+    default = ["10.0.11.0/24", "10.0.12.0/24"]
+}
+
+variable "database_subnet_cidrs" {
+    default = ["10.0.21.0/24", "10.0.22.0/24"]
+}
+
+variable "is_peering_required" {
+    default = true
+}
+
+vpc.tf 
+=======
+
+module "vpc" {
+    #source = "../terraform-aws-vpc"
+    source = "git::https://github.com/daws-81s/terraform-aws-vpc.git?ref=main"
+    vpc_cidr = var.vpc_cidr
+    project_name = var.project_name
+    environment = var.environment
+    common_tags = var.common_tags
+    public_subnet_cidrs = var.public_subnet_cidrs
+    private_subnet_cidrs = var.private_subnet_cidrs
+    database_subnet_cidrs = var.database_subnet_cidrs
+    is_peering_required = var.is_peering_required
+}
+
+-> cd terraform-aws-eks/00-vpc
+-> terraform init 
+-> terraform plan 
+-> terraform apply -auto-approve
+
+
+In sub-folder -> 10-sg 
+
+data.tf 
+========
+data "aws_ssm_parameter" "vpc_id" {
+  name = "/${var.project_name}/${var.environment}/vpc_id"
+}
+
+
+locals.tf 
+==========
+locals {
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+}
+
+
+main.tf 
+========
+
+module "mysql_sg" {
+    source = "../../terraform-aws-security-group"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "mysql"
+    vpc_id = local.vpc_id
+    common_tags = var.common_tags
+    sg_tags = var.mysql_sg_tags
+}
+
+module "bastion_sg" {
+    source = "../../terraform-aws-security-group"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "bastion"
+    vpc_id = local.vpc_id
+    common_tags = var.common_tags
+    sg_tags = var.bastion_sg_tags
+}
+
+module "node_sg" {
+    source = "../../terraform-aws-security-group"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "node"
+    vpc_id = local.vpc_id
+    common_tags = var.common_tags
+    #sg_tags = var.node_sg_tags
+}
+
+module "eks_control_plane_sg" {
+    source = "../../terraform-aws-security-group"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "eks-control-plane"
+    vpc_id = local.vpc_id
+    common_tags = var.common_tags
+    #sg_tags = var.node_sg_tags
+}
+
+module "ingress_alb_sg" {
+    source = "../../terraform-aws-security-group"
+    project_name = var.project_name
+    environment = var.environment
+    sg_name = "ingress-alb"
+    vpc_id = local.vpc_id
+    common_tags = var.common_tags
+    #sg_tags = var.node_sg_tags
+}
+
+resource "aws_security_group_rule" "ingress_alb_https" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  security_group_id = module.ingress_alb_sg.id
+}
+
+resource "aws_security_group_rule" "node_ingress_alb" {
+  type              = "ingress"
+  from_port         = 30000
+  to_port           = 32767
+  protocol          = "tcp"
+  source_security_group_id = module.ingress_alb_sg.id
+  security_group_id = module.node_sg.id
+}
+
+resource "aws_security_group_rule" "node_eks_control_plane" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  source_security_group_id = module.eks_control_plane_sg.id
+  security_group_id = module.node_sg.id
+}
+
+resource "aws_security_group_rule" "eks_control_plane_node" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  source_security_group_id = module.node_sg.id
+  security_group_id = module.eks_control_plane_sg.id
+}
+
+resource "aws_security_group_rule" "eks_control_plane_bastion" {
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  source_security_group_id = module.bastion_sg.id
+  security_group_id = module.eks_control_plane_sg.id
+}
+
+resource "aws_security_group_rule" "node_vpc" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks = ["10.0.0.0/16"]
+  security_group_id = module.node_sg.id
+}
+
+resource "aws_security_group_rule" "node_bastion" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  source_security_group_id = module.bastion_sg.id
+  security_group_id = module.node_sg.id
+}
+
+resource "aws_security_group_rule" "mysql_bastion" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  source_security_group_id       = module.bastion_sg.id
+  security_group_id = module.mysql_sg.id
+}
+
+
+resource "aws_security_group_rule" "bastion_public" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  security_group_id = module.bastion_sg.id
+}
+
+
+
+parameters.tf 
+==============
+
+resource "aws_ssm_parameter" "mysql_sg_id" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/mysql_sg_id"
+  type  = "String"
+  value = module.mysql_sg.id
+}
+
+resource "aws_ssm_parameter" "eks_control_plane_sg_id" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/eks_control_plane_sg_id"
+  type  = "String"
+  value = module.eks_control_plane_sg.id
+}
+
+resource "aws_ssm_parameter" "node_sg_id" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/node_sg_id"
+  type  = "String"
+  value = module.node_sg.id
+}
+
+resource "aws_ssm_parameter" "ingress_alb_sg_id" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/ingress_alb_sg_id"
+  type  = "String"
+  value = module.ingress_alb_sg.id
+}
+
+
+resource "aws_ssm_parameter" "bastion_sg_id" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/bastion_sg_id"
+  type  = "String"
+  value = module.bastion_sg.id
+}
+
+
+provider.tf 
+============
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state"
+    key    = "expense-sg"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+==============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+variable "mysql_sg_tags" {
+    default = {
+        Component = "mysql"
+    }
+}
+
+variable "backend_sg_tags" {
+    default = {
+        Component = "backend"
+    }
+}
+
+variable "frontend_sg_tags" {
+    default = {
+        Component = "frontend"
+    }
+}
+
+variable "bastion_sg_tags" {
+    default = {
+        Component = "bastion"
+    }
+}
+
+variable "ansible_sg_tags" {
+    default = {
+        Component = "ansible"
+    }
+}
+
+
+-> cd ../10-sg/ 
+-> terraform init 
+-> terraform plan 
+-> terraform apply -auto-approve 
+
+
+In sub-folder 20-bastion 
+
+bastion.sh 
+============
+#!/bin/bash
+
+USERID=$(id -u)
+TIMESTAMP=$(date +%F-%H-%M-%S)
+SCRIPT_NAME=$(echo $0 | cut -d "." -f1)
+LOGFILE=/tmp/$SCRIPT_NAME-$TIMESTAMP.log
+R="\e[31m"
+G="\e[32m"
+Y="\e[33m"
+N="\e[0m"
+
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
+
+VALIDATE(){
+   if [ $1 -ne 0 ]
+   then
+        echo -e "$2...$R FAILURE $N"
+        exit 1
+    else
+        echo -e "$2...$G SUCCESS $N"
+    fi
+}
+
+if [ $USERID -ne 0 ]
+then
+    echo "Please run this script with root access."
+    exit 1 # manually exit if error comes.
+else
+    echo "You are super user."
+fi
+
+# docker
+yum install -y yum-utils
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+systemctl start docker
+systemctl enable docker
+usermod -aG docker ec2-user
+VALIDATE $? "Docker installation"
+
+# eksctl
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+mv /tmp/eksctl /usr/local/bin
+eksctl version
+VALIDATE $? "eksctl installation"
+
+
+# kubectl
+curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.31.0/2024-09-12/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+mv kubectl /usr/local/bin/kubectl
+VALIDATE $? "kubectl installation"
+
+# kubens
+git clone https://github.com/ahmetb/kubectx /opt/kubectx
+ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+VALIDATE $? "kubens installation"
+
+
+#Helm
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+VALIDATE $? "helm installation"
+
+#k9S
+curl -sS https://webinstall.dev/k9s | bash
+VALIDATE $? "K9S installation"
+
+
+data.tf 
+========
+
+data "aws_ssm_parameter" "bastion_sg_id" {
+  #/expense/dev/bastion_sg_id
+  name = "/${var.project_name}/${var.environment}/bastion_sg_id"
+}
+
+data "aws_ssm_parameter" "public_subnet_ids" {
+  #/expense/dev/public_subnet_ids
+  name = "/${var.project_name}/${var.environment}/public_subnet_ids"
+}
+
+data "aws_ami" "joindevops" {
+
+	most_recent      = true
+	owners = ["973714476881"]
+	
+	filter {
+		name   = "name"
+		values = ["RHEL-9-DevOps-Practice"]
+	}
+	
+	filter {
+		name   = "root-device-type"
+		values = ["ebs"]
+	}
+
+    filter {
+        name   = "virtualization-type"
+        values = ["hvm"]
+    }
+}
+
+
+locals.tf 
+==========
+
+locals {
+    resource_name = "${var.project_name}-${var.environment}-bastion"
+    bastion_sg_id = data.aws_ssm_parameter.bastion_sg_id.value
+    public_subnet_id = split(",", data.aws_ssm_parameter.public_subnet_ids.value)[0]
+}
+
+
+main.tf 
+========
+
+module "bastion" {
+  source  = "terraform-aws-modules/ec2-instance/aws"
+  
+  ami = data.aws_ami.joindevops.id
+  name = local.resource_name
+
+  instance_type          = "t3.micro"
+  vpc_security_group_ids = [local.bastion_sg_id]
+  subnet_id              = local.public_subnet_id
+  user_data = file("bastion.sh")
+  tags = merge(
+    var.common_tags,
+    var.bastion_tags,
+    {
+        Name = local.resource_name
+    }
+  )
+}
+
+
+provider.tf 
+=============
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state"
+    key    = "expense-bastion"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+=============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+variable "bastion_tags" {
+    default = {
+        Component = "bastion"
+    }
+}
+
+
+In sub-folder 40-eks
+
+data.tf 
+==========
+
+data "aws_ssm_parameter" "eks_control_plane_sg_id" {
+  #/expense/dev/bastion_sg_id
+  name = "/${var.project_name}/${var.environment}/eks_control_plane_sg_id"
+}
+
+data "aws_ssm_parameter" "node_sg_id" {
+  #/expense/dev/bastion_sg_id
+  name = "/${var.project_name}/${var.environment}/node_sg_id"
+}
+
+data "aws_ssm_parameter" "private_subnet_ids" {
+  #/expense/dev/public_subnet_ids
+  name = "/${var.project_name}/${var.environment}/private_subnet_ids"
+}
+
+data "aws_ssm_parameter" "vpc_id" {
+  name = "/${var.project_name}/${var.environment}/vpc_id"
+}
+
+data "aws_ami" "joindevops" {
+
+	most_recent      = true
+	owners = ["973714476881"]
+	
+	filter {
+		name   = "name"
+		values = ["RHEL-9-DevOps-Practice"]
+	}
+	
+	filter {
+		name   = "root-device-type"
+		values = ["ebs"]
+	}
+
+    filter {
+        name   = "virtualization-type"
+        values = ["hvm"]
+    }
+}
+
+
+locals.tf 
+===========
+
+locals {
+    private_subnet_ids = split(",", data.aws_ssm_parameter.private_subnet_ids.value)
+    eks_control_plane_sg_id = data.aws_ssm_parameter.eks_control_plane_sg_id.value
+    node_sg_id = data.aws_ssm_parameter.node_sg_id.value
+}
+
+
+main.tf 
+========
+
+resource "aws_key_pair" "eks" {
+  key_name   = "eks"
+  # you can paste the public key directly like this
+  #public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL6ONJth+DzeXbU3oGATxjVmoRjPepdl7sBuPzzQT2Nc sivak@BOOK-I6CR3LQ85Q"
+  public_key = file("~/.ssh/eks.pub")
+  # ~ means windows home directory
+}
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+
+
+  cluster_name    = "${var.project_name}-${var.environment}"
+  cluster_version = "1.30"
+
+  cluster_endpoint_public_access  = true
+
+  cluster_addons = {
+    coredns                = {}
+    eks-pod-identity-agent = {}
+    kube-proxy             = {}
+    vpc-cni                = {}
+  }
+
+  vpc_id                   = data.aws_ssm_parameter.vpc_id.value
+  subnet_ids               = local.private_subnet_ids
+  control_plane_subnet_ids = local.private_subnet_ids
+
+  create_cluster_security_group = false
+  cluster_security_group_id     = local.eks_control_plane_sg_id
+
+  create_node_security_group = false
+  node_security_group_id     = local.node_sg_id
+
+  # the user which you used to create cluster will get admin access
+
+  # EKS Managed Node Group(s)
+  eks_managed_node_group_defaults = {
+    instance_types = ["m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+  }
+
+  eks_managed_node_groups = {
+    blue = {
+      min_size      = 2
+      max_size      = 10
+      desired_size  = 2
+      #capacity_type = "SPOT"
+      iam_role_additional_policies = {
+        AmazonEBSCSIDriverPolicy          = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+        AmazonElasticFileSystemFullAccess = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+        ElasticLoadBalancingFullAccess = "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
+      }
+      # EKS takes AWS Linux 2 as it's OS to the nodes
+      key_name = aws_key_pair.eks.key_name
+    }
+    green = {
+      min_size      = 2
+      max_size      = 10
+      desired_size  = 2
+      #capacity_type = "SPOT"
+      iam_role_additional_policies = {
+        AmazonEBSCSIDriverPolicy          = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+        AmazonElasticFileSystemFullAccess = "arn:aws:iam::aws:policy/AmazonElasticFileSystemFullAccess"
+        ElasticLoadBalancingFullAccess = "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
+      }
+      # EKS takes AWS Linux 2 as it's OS to the nodes
+      key_name = aws_key_pair.eks.key_name
+    }
+  }
+
+  # Cluster access entry
+  # To add the current caller identity as an administrator
+  enable_cluster_creator_admin_permissions = true
+
+  tags = var.common_tags
+}
+
+
+provider.tf 
+============
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.75.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state"
+    key    = "expense-eks"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+
+-> Connecting through ingress resource is a application load balancer 
+-> Connecting through service is classic load balancer 
+
+-> Kubernetes is a open source, AWS provided a service called EKS 
+
+
+-> After creation of cluster and nodes 
+-> expense-dev-bastion instance gets created
+-> login to that instance into superputty 
+-> aws configure 
+-> aws eks update-kubeconfig --region us-east-1 --name expense-dev 
+-> kubectl get nodes 
+-> git clone <expense-k8 https url>
+-> cd expense-k8/mysql/ 
+-> kubectl create namespace expense 
+-> kubectl apply -f manifest.yaml 
+-> cd ../backend/
+-> kubectl apply -f manifest.yaml
+-> cd ../frontend/ 
+-> kubectl apply -f manifest.yaml
+-> kubectl get svc -n expense 
+
+-> open load balancer and check for target instances is in-service or not and access the application with the DNS value
+
+
+pod-1 is in node-1
+pod-2 is in node-2 
+
+pod-2 is receiving traffic from pod-1 
+
+node-2 should allow traffic from node-1 
+
+What is blue-green?
+-> blue group of nodes --> current running 
+-> green group of nodes 
+
+Cluster upgrade
+-----------------
+It is better to announce downtime, you should not do any releases or deployments or changes to any resources 
+
+change the sg, so that only admin team bastion have access to cluster 
+
+1. create another node group green with same capacity 
+2. cordon green nodes, not to accept any pods 
+3. upgrade control panel to 1.31 
+4. upgrade green also to 1.31
+5. we will cordon blue nodes, uncordon green nodes 
+6. drain blue nodes
+7. delete blue node group 
+
+now running node group is green
+
+-> when EKS control plane is down, we can access the application. becoz there is no relation between EKS control plane and application. Application can only relate with the 
+
+-> blue-green deployment is a zero-downtime approche 
+-> so, we will create a same set of nodes along with blue 
+-> once everything is shifted to blue, we will delete the green 
+
+
+-> kubectl delete -f ../frontend/manifest.yaml 
+-> kubectl delete -f ../backend/manifest.yaml 
+-> kubectl delete -f ../mysql/manifest.yaml 
