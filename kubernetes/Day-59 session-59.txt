@@ -1,0 +1,691 @@
+Day-59 session-59 (14/11/2024)
+------------------------------
+
+Recap:
+-----------
+cluster created 
+present blue is running
+apps are also running 
+
+Open load balancer and access the DNS values check the application in chrome 
+
+-> login with the expense-dev worker node into superputty
+-> git clone <expense-k8 https url>
+-> kubectl get pods 
+-> kubectl logs <frontend-pod>
+-> kubectl delete -f frontend/manifest.yaml 
+-> kubectl apply -f frontend/manifest.yaml 
+-> kubectl get pods 
+-> kubectl get svc 
+-> kubectl delete namespace expense --force --grace-period=0
+-> kubectl delete svc frontend --force 
+
+
+
+-> kubectl create namespace expense 
+-> kubectl apply -f mysql/manifest.yaml 
+-> kubectl apply -f backend/manifest.yaml 
+-> kubectl apply -f froentend/manifest.yaml 
+-> kubectl get pods 
+-> kubectl get svc 
+
+open the load balancer and check the application in chrome 
+
+Now we have to upgrade the cluster
+------------------------------------
+
+
+steps to upgrade
+-----------------
+send a communication that EKS is getting updraded, no new deployments and release happens
+change the SG to remove access to other teams 
+
+1. create green node group with same capacity 
+
+-> uncomment the green node group and apply the terraform apply -auto-approve command
+-> so, we will get the two nodes one is blue and other is green in EKS cluster in AWS 
+-> present nodes are in blue, after immediate creation of green node, we have to cordon the nodes 
+
+2. cordon green nodes 
+-> kubectl cordon <node-name> -> scheduling disabled 
+-> kubectl get nodes 
+
+-> now, we have to upgrade the control plane in EKS cluster to 1.31 
+-> At the time of upgrade, EKS control plane is in down 
+
+3. upgrade control plane in console to 1.31 
+4. upgrade green node group also to 1.31 
+
+cordon blue nodes 
+uncordon green nodes 
+
+drain blue nodes --> automatically workloads will come to green 
+delete blue 
+
+-> updating the cluster may takes 30 mins to one hr 
+
+
+Generally VM to container migration(k8)
+---------------------------------------
+from monolithic to microservices we should go for containers untill then they are in VMs 
+
+-> when expense project is in VM we have existing ALB(In that we have target groups, listeners, rules etc)
+-> so, we have to migrate the above with the two options either with the existing ALB or with the new ALB through ingress 
+
+existing ALB or new ALB through ingress 
+
+-> ingress control is not part of the kubernetes cluster 
+-> So, the best option is to use existing ALB 
+
+
+general steps
+-------------
+ALB -> Listener -> Rule -> Target group(health checks)(Instance based) -> VM 
+
+ALB -> Listener -> Rule -> Target group(health checks) -> pods
+
+-> check if the cluster is updated or not 
+-> Now go to compute in cluster (eg.,expense) and update the green node 
+-> after updating the control plane and green node. now we have to shift the nodes from blue to green 
+
+
+
+Now we have to create ALB 
+--------------------------
+Before creation of ALB we need to create ACM 
+
+1. create ACM, create ALB, Listener, Rule, Target group(IP based)
+
+
+
+In terraform-aws-eks 
+
+50-acm 
+------
+
+locals.tf 
+===========
+
+locals {
+    resource_name = "${var.project_name}-${var.environment}"
+}
+
+
+main.tf 
+==========
+
+
+resource "aws_acm_certificate" "expense" {
+  domain_name       = "*.${var.zone_name}"
+  validation_method = "DNS"
+
+  tags = merge(
+    var.common_tags,
+    {
+        Name = local.resource_name #expense-dev
+    }
+  )
+
+}
+
+resource "aws_route53_record" "expense" {
+  for_each = {
+    for dvo in aws_acm_certificate.expense.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.zone_id
+}
+
+resource "aws_acm_certificate_validation" "expense" {
+  certificate_arn         = aws_acm_certificate.expense.arn
+  validation_record_fqdns = [for record in aws_route53_record.expense : record.fqdn]
+}
+
+
+parameters.tf 
+==============
+resource "aws_ssm_parameter" "https_certificate_arn" {
+  name  = "/${var.project_name}/${var.environment}/https_certificate_arn"
+  type  = "String"
+  value = aws_acm_certificate.expense.arn
+}
+
+
+
+provider.tf 
+============
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state"
+    key    = "expense-dev-acm"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+
+variables.tf 
+=============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+
+variable "zone_name" {
+    default = "daws81s.fun"
+}
+
+variable "zone_id" {
+    default = "Z09912121MS725XSKH1TG"
+}
+
+
+
+-> cd terraform-aws-eks/05-acm/
+-> terraform init 
+-> terraform plan 
+-> terraform apply -auto-approve 
+
+
+60-alb 
+-------
+
+data.tf 
+========
+
+data "aws_ssm_parameter" "vpc_id" {
+  name = "/${var.project_name}/${var.environment}/vpc_id"
+}
+
+data "aws_ssm_parameter" "public_subnet_ids" {
+  #/expense/dev/private_subnet_ids
+  name = "/${var.project_name}/${var.environment}/public_subnet_ids"
+}
+
+data "aws_ssm_parameter" "ingress_alb_sg_id" {
+  name = "/${var.project_name}/${var.environment}/ingress_alb_sg_id"
+}
+
+data "aws_ssm_parameter" "https_certificate_arn" {
+  name = "/${var.project_name}/${var.environment}/https_certificate_arn"
+}
+
+
+locals.tf 
+=========
+locals {
+    resource_name = "${var.project_name}-${var.environment}"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    public_subnet_ids = split(",", data.aws_ssm_parameter.public_subnet_ids.value)
+    https_certificate_arn = data.aws_ssm_parameter.https_certificate_arn.value
+}
+
+
+
+main.tf 
+========
+
+module "ingress_alb" {
+  source = "terraform-aws-modules/alb/aws"
+
+  internal = false
+  name    = "${local.resource_name}-ingress-alb" #expense-dev-app-alb
+  vpc_id  = local.vpc_id
+  subnets = local.public_subnet_ids
+  security_groups = [data.aws_ssm_parameter.ingress_alb_sg_id.value]
+  create_security_group = false
+  enable_deletion_protection = false
+  tags = merge(
+    var.common_tags,
+    var.ingress_alb_tags
+  )
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = module.ingress_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/html"
+      message_body = "<h1>Hello, I am from Application ALB</h1>"
+      status_code  = "200"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = module.ingress_alb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = local.https_certificate_arn
+
+  default_action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/html"
+      message_body = "<h1>Hello, I am from Web ALB HTTPS</h1>"
+      status_code  = "200"
+    }
+  }
+}
+
+
+module "records" {
+  source  = "terraform-aws-modules/route53/aws//modules/records"
+
+  zone_name = var.zone_name #daws81s.online
+  records = [
+    {
+      name    = "expense-${var.environment}" # *.app-dev
+      type    = "A"
+      alias   = {
+        name    = module.ingress_alb.dns_name
+        zone_id = module.ingress_alb.zone_id # This belongs ALB internal hosted zone, not ours
+      }
+      allow_overwrite = true
+    }
+  ]
+}
+
+resource "aws_lb_target_group" "expense" {
+  name     = local.resource_name
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = local.vpc_id
+  target_type = "ip"
+
+  health_check {
+    healthy_threshold = 2
+    unhealthy_threshold = 2
+    interval = 5
+    matcher = "200-299"
+    path = "/"
+    port = 80
+    protocol = "HTTP"
+    timeout = 4
+  }
+}
+
+resource "aws_lb_listener_rule" "frontend" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 100 # low priority will be evaluated first
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.expense.arn
+  }
+
+  condition {
+    host_header {
+      values = ["expense-${var.environment}.${var.zone_name}"] #expense-dev.daws81s.online
+    }
+  }
+}
+
+
+parameters.tf 
+==============
+
+resource "aws_ssm_parameter" "web_alb_listener_arn" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/web_alb_listener_arn"
+  type  = "String"
+  value = aws_lb_listener.https.arn
+}
+
+
+provider.tf 
+============
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.73.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state"
+    key    = "expense-alb-ingress"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+variable "ingress_alb_tags" {
+    default = {
+        Component = "web-alb"
+    }
+}
+
+
+variable "zone_name" {
+    default = "daws81s.online"
+}
+
+
+-> cd ../60-alb/
+-> terraform init 
+-> terraform plan 
+-> terraform apply -auto-approve
+-> go to load balancer and check the listener rules 
+-> Kubernetes responsibility is to add the adding pods to the target groupsby using two methods
+
+1. Ingress resource --> target group 
+2. Target group binding -> adds our pods to target group 
+
+-> kubectl get nodes 
+
+-> before draining we have to cordon the nodes. becoz it will not go to another nodes 
+
+-> kubectl cordon <node-name>  (we have to cordon the blue nodes)-> this has to done for two nodes
+-> kubectl get nodes 
+-> kubectl drain <blue-node-name> --ignore-daemonsets -> this has to done for two nodes
+-> kubectl get pods -o wide 
+
+-> Now manually change the cluster_version from 1.30 to 1.31 and comment the blue node (commenting blue node in the sense deleting the blue node) -> this should be done in 40-eks 
+-> cd ../40-eks/ 
+-> terraform apply -auto-approve 
+
+
+eksctl utils associate-iam-oidc-provider \
+    --region us-east-1 \
+    --cluster expense-dev \
+    --approve
+	
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+	
+	
+eksctl create iamserviceaccount \
+--cluster=expense-dev \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+
+helm repo add eks https://aws.github.io/eks-charts
+
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev --set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller
+
+-> helm list -n kube-system
+-> kubectl get pods -n kube-system
+
+Now target group binding 
+-----------------------------
+-> kubectl patch svc frontend -p '{"metadata":{"finalizers":null}}'
+-> kubectl delete svc frontend --grace-period=0 --force 
+-> cd expense-k8 
+-> kubens expense 
+-> kubectl get svc
+
+In expense-k8 -> frontend -> manifest.yaml 
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend
+  namespace: expense
+data:
+  nginx.conf: | # | represents multi line file
+    user www-data;
+    worker_processes 4;
+    pid /var/run/nginx.pid;
+
+    events {
+      worker_connections 768;
+      # multi_accept on;
+    }
+
+    http {
+
+      ##
+      # Basic Settings
+      ##
+
+      sendfile on;
+      tcp_nopush on;
+      tcp_nodelay on;
+      keepalive_timeout 65;
+      types_hash_max_size 2048;
+      large_client_header_buffers 6 32k;
+      client_max_body_size 100m;
+
+      # server_names_hash_bucket_size 64;
+      # server_name_in_redirect off;
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+
+      ##
+      # Logging Settings
+      ##
+      access_log /var/log/nginx/access.log;
+      error_log /var/log/nginx/error.log debug; # change from debug to warn or error for production
+
+      ##
+      # Gzip Settings
+      ##
+      gzip on;
+      gzip_disable "msie6";
+
+      ##
+      # Virtual Host Configs
+      ##
+
+      include /etc/nginx/conf.d/*.conf;
+      include /etc/nginx/sites-enabled/*;
+
+      server {
+        listen       80;
+        server_name  localhost;
+
+        proxy_http_version 1.1;
+
+        #charset koi8-r;
+        #access_log  /var/log/nginx/host.access.log  main;
+        #error_log /dev/stdout debug;
+        #rewrite_log on;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+            ssi    on;
+        }
+
+        location /images/ {
+            expires 5s;
+            root   /usr/share/nginx/html;
+            try_files $uri /images/placeholder.png;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+        # this is as part of nginx configmap
+        location /api/ { 
+            proxy_pass http://backend:8080/;
+        }
+
+        }
+
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: joindevops/frontend:v1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: frontend
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  #type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 80 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: frontend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: frontend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: 15 # usually 75 in real environment
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  serviceRef:
+    name: frontend # route traffic to the awesome-service
+    port: 80
+  targetGroupARN: arn:aws:elasticloadbalancing:us-east-1:315069654700:targetgroup/expense-dev/3a568c998a755e02
+  targetType: ip
+
+-> kubectl apply -f frontend/manifest.yaml 
+-> kubectl get pods -o wide 
+
+
+-> create a route53 with the DNS value 
+-> access the application in chrome
+
+-> Till now we have done with the existing ALB 
+
+-> we can do with the ingress ALB
+-> ingress is the resource in kubernetes which we can create the listeners,rules and target groups in load balancer
