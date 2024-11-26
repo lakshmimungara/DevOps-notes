@@ -1,0 +1,1057 @@
+Day-66 session-66 (25/11/2024)
+-----------------------------------
+
+vpc 
+sg 
+	bastion 
+	rds 
+	eks 
+	acm 
+	ecr 
+	cdn 
+
+alb 
+
+In the case of APPLY
+=======================
+ 
+VPC 
+-----
+apply -> it should create VPC, and trigger SG 
+
+SG 
+-----
+apply -> it should create SG and trigger parallely
+	bastion 
+	rds 
+	eks 
+	acm 
+	ecr 
+	cdn 
+	
+alb 
+
+In the case of DESTROY 
+=========================
+ECR 
+	when destroy -> it can trigger all destroy 
+	alb 
+	cdn 
+	ecr 
+	acm 
+	eks 
+	rds 
+	bastion 
+sequence 
+	sg 
+	vpc 
+	
+SG is downstream for VPC and VPC is upstream for SG 
+	
+In subfolder 50-acm 
+
+Jenkinsfile 
+===============
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+    // environment {
+    //     DEBUG = 'true'
+    // }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Select Action')
+    }
+    stages {
+        stage('Init and Plan') {
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 50-acm
+                        terraform init -reconfigure
+                        terraform plan -out=tfplan
+                    """
+                }
+            }
+        }
+
+        stage('Apply or Destroy') {
+            /* input {
+                message "Should we continue to ${params.ACTION}"
+                ok "Yes, we should."
+            } */
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 50-acm
+                        if [ ${params.ACTION} == 'apply' ]
+                        then
+                            terraform apply -auto-approve tfplan
+                        elif [ ${params.ACTION} == 'destroy' ]
+                        then
+                            terraform destroy -auto-approve
+                        fi
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+locals.tf 
+===========
+
+locals {
+    resource_name = "${var.project_name}-${var.environment}"
+}
+
+
+main.tf 
+==========
+
+resource "aws_acm_certificate" "expense" {
+  domain_name       = "*.${var.zone_name}" # *.daws81s.online
+  validation_method = "DNS"
+
+  tags = merge(
+    var.common_tags,
+    {
+        Name = local.resource_name #expense-dev
+    }
+  )
+
+}
+
+resource "aws_route53_record" "expense" {
+  for_each = {
+    for dvo in aws_acm_certificate.expense.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.zone_id
+}
+
+resource "aws_acm_certificate_validation" "expense" {
+  certificate_arn         = aws_acm_certificate.expense.arn
+  validation_record_fqdns = [for record in aws_route53_record.expense : record.fqdn]
+}
+
+
+parameters.tf 
+==============
+
+resource "aws_ssm_parameter" "https_certificate_arn" {
+  name  = "/${var.project_name}/${var.environment}/https_certificate_arn"
+  type  = "String"
+  value = aws_acm_certificate.expense.arn
+}
+
+
+provider.tf 
+=============
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state-dev"
+    key    = "expense-dev-acm"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking-dev"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+=============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+
+variable "zone_name" {
+    default = "daws81s.online"
+}
+
+variable "zone_id" {
+    default = "Z09912121MS725XSKH1TG"
+}
+
+
+In sub-folder 60-alb 
+
+Jenkinsfile
+=============
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+    // environment {
+    //     DEBUG = 'true'
+    // }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Select Action')
+    }
+    stages {
+        stage('Init and Plan') {
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 60-alb
+                        terraform init -reconfigure
+                        terraform plan -out=tfplan
+                    """
+                }
+            }
+        }
+
+        stage('Apply or Destroy') {
+            /* input {
+                message "Should we continue to ${params.ACTION}"
+                ok "Yes, we should."
+            } */
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 60-alb
+                        if [ ${params.ACTION} == 'apply' ]
+                        then
+                            terraform apply -auto-approve tfplan
+                        elif [ ${params.ACTION} == 'destroy' ]
+                        then
+                            terraform destroy -auto-approve
+                        fi
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+data.tf 
+===========
+
+data "aws_ssm_parameter" "vpc_id" {
+  name = "/${var.project_name}/${var.environment}/vpc_id"
+}
+
+data "aws_ssm_parameter" "public_subnet_ids" {
+  #/expense/dev/private_subnet_ids
+  name = "/${var.project_name}/${var.environment}/public_subnet_ids"
+}
+
+data "aws_ssm_parameter" "ingress_alb_sg_id" {
+  name = "/${var.project_name}/${var.environment}/ingress_alb_sg_id"
+}
+
+data "aws_ssm_parameter" "https_certificate_arn" {
+  name = "/${var.project_name}/${var.environment}/https_certificate_arn"
+}
+
+
+
+locals.tf 
+===========
+
+locals {
+    resource_name = "${var.project_name}-${var.environment}"
+    vpc_id = data.aws_ssm_parameter.vpc_id.value
+    public_subnet_ids = split(",", data.aws_ssm_parameter.public_subnet_ids.value)
+    https_certificate_arn = data.aws_ssm_parameter.https_certificate_arn.value
+}
+
+
+main.tf 
+===========
+
+module "ingress_alb" {
+  source = "terraform-aws-modules/alb/aws"
+
+  internal = false
+  name    = "${local.resource_name}-ingress-alb" #expense-dev-app-alb
+  vpc_id  = local.vpc_id
+  subnets = local.public_subnet_ids
+  security_groups = [data.aws_ssm_parameter.ingress_alb_sg_id.value]
+  create_security_group = false
+  enable_deletion_protection = false
+  tags = merge(
+    var.common_tags,
+    var.ingress_alb_tags
+  )
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = module.ingress_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/html"
+      message_body = "<h1>Hello, I am from Application ALB</h1>"
+      status_code  = "200"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = module.ingress_alb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = local.https_certificate_arn
+
+  default_action {
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/html"
+      message_body = "<h1>Hello, I am from Web ALB HTTPS</h1>"
+      status_code  = "200"
+    }
+  }
+}
+
+
+module "records" {
+  source  = "terraform-aws-modules/route53/aws//modules/records"
+
+  zone_name = var.zone_name #daws81s.online
+  records = [
+    {
+      name    = "expense-${var.environment}" 
+      type    = "A"
+      alias   = {
+        name    = module.ingress_alb.dns_name
+        zone_id = module.ingress_alb.zone_id # This belongs ALB internal hosted zone, not ours
+      }
+      allow_overwrite = true
+    }
+  ]
+}
+
+resource "aws_lb_target_group" "expense" {
+  name     = local.resource_name
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = local.vpc_id
+  target_type = "ip"
+
+  health_check {
+    healthy_threshold = 2
+    unhealthy_threshold = 2
+    interval = 5
+    matcher = "200-299"
+    path = "/"
+    port = 8080
+    protocol = "HTTP"
+    timeout = 4
+  }
+}
+
+resource "aws_lb_listener_rule" "frontend" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 100 # low priority will be evaluated first
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.expense.arn
+  }
+
+  condition {
+    host_header {
+      values = ["expense-${var.environment}.${var.zone_name}"] #expense-dev.daws81s.online
+    }
+  }
+}
+
+
+parameters.tf 
+===============
+
+resource "aws_ssm_parameter" "web_alb_listener_arn" {
+  # /expense/dev/mysql_sg_id
+  name  = "/${var.project_name}/${var.environment}/web_alb_listener_arn"
+  type  = "String"
+  value = aws_lb_listener.https.arn
+}
+
+
+provider.tf 
+============
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.73.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state-dev"
+    key    = "expense-alb-ingress"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking-dev"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+================
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+variable "ingress_alb_tags" {
+    default = {
+        Component = "web-alb"
+    }
+}
+
+
+variable "zone_name" {
+    default = "daws81s.online"
+}
+
+
+
+In sub-folder 70-ecr 
+
+Jenkinsfile
+=============
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+    // environment {
+    //     DEBUG = 'true'
+    // }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Select Action')
+    }
+    stages {
+        stage('Init and Plan') {
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 70-ecr
+                        terraform init -reconfigure
+                        terraform plan -out=tfplan
+                    """
+                }
+            }
+        }
+
+        stage('Apply or Destroy') {
+            /* input {
+                message "Should we continue to ${params.ACTION}"
+                ok "Yes, we should."
+            } */
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 70-ecr
+                        if [ ${params.ACTION} == 'apply' ]
+                        then
+                            terraform apply -auto-approve tfplan
+                        elif [ ${params.ACTION} == 'destroy' ]
+                        then
+                            terraform destroy -auto-approve
+                        fi
+                    """
+                }
+            }
+        }
+
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+main.tf 
+===========
+resource "aws_ecr_repository" "backend" {
+  name                 = "${var.project_name}/${var.environment}/backend"
+  image_tag_mutability = "MUTABLE"
+  force_delete = true
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "frontend" {
+  name                 = "${var.project_name}/${var.environment}/frontend"
+  image_tag_mutability = "MUTABLE"
+  force_delete = true
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+provider.tf 
+=============
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.73.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state-dev"
+    key    = "expense-ecr"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking-dev"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+=================
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+
+In sub-folder 80-cdn 
+
+Jenkinsfile
+============
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+    // environment {
+    //     DEBUG = 'true'
+    // }
+
+    parameters {
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Select Action')
+    }
+    stages {
+        stage('Init and Plan') {
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 80-cdn
+                        terraform init -reconfigure
+                        terraform plan -out=tfplan
+                    """
+                }
+            }
+        }
+
+        stage('Apply or Destroy') {
+            /* input {
+                message "Should we continue to ${params.ACTION}"
+                ok "Yes, we should."
+            } */
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        cd 80-cdn
+                        if [ ${params.ACTION} == 'apply' ]
+                        then
+                            terraform apply -auto-approve tfplan
+                        fi
+                    """
+                }
+            }
+        }
+
+        /* stage('Destroy') {
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            parallel {
+                stage('ECR') {
+                    steps {
+                        build job: '70-ecr', parameters: [string(name: 'ACTION', value: "destroy")], wait: false
+                    }
+                }
+                stage('ALB') {
+                    steps {
+                        build job: '60-alb', parameters: [string(name: 'ACTION', value: "destroy")], wait: false
+                    }
+                }
+                stage('EKS') {
+                    steps {
+                        build job: '40-eks', parameters: [string(name: 'ACTION', value: "destroy")], wait: true
+                    }
+                }
+                stage('Bastion') {
+                    steps {
+                        build job: '20-bastion', parameters: [string(name: 'ACTION', value: "destroy")], wait: false
+                    }
+                }
+
+            }
+        } */
+        stage('Destroy'){
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    script {
+                        def directories = ['80-cdn', '70-ecr', '60-alb', '50-acm', '40-eks', '30-rds', '20-bastion', '10-sg', '00-vpc']
+                        for (dir in directories) {
+                            echo "Destroying resources in directory: ${dir}"
+                            sh """
+                            cd ${dir}
+                            terraform init -reconfigure
+                            terraform destroy -auto-approve || { echo "Failed to destroy resources in ${dir}"; exit 1; }
+                            cd ..
+                            """
+                        }
+            }
+                }
+            }
+        }
+        /* stage('Sequential') {
+            when {
+                expression { params.ACTION == 'destroy' }
+            }
+            stages {
+                
+                stage('ACM') {
+                    steps {
+                        build job: '50-acm', parameters: [string(name: 'ACTION', value: "destroy")], wait: false
+                    }
+                }
+                stage('SG-Destroy'){
+                    steps {
+                        build job: '10-sg', parameters: [string(name: 'ACTION', value: "destroy")], wait: true
+                    }
+                }
+                stage('VPC-Destroy'){
+                    steps {
+                        build job: '00-vpc', parameters: [string(name: 'ACTION', value: "destroy")], wait: false
+                    }
+                }
+            }
+                
+        } */
+        
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+data.tf 
+============
+
+data "aws_cloudfront_cache_policy" "noCache" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_cache_policy" "cacheOptmised" {
+  name = "Managed-CachingOptimized"
+}
+
+data "aws_ssm_parameter" "https_certificate_arn" {
+  name = "/${var.project_name}/${var.environment}/https_certificate_arn"
+}
+
+
+locals.tf 
+==========
+
+locals {
+    resource_name = "${var.project_name}-${var.environment}"
+    https_certificate_arn = data.aws_ssm_parameter.https_certificate_arn.value
+}
+
+
+main.tf 
+=========
+
+
+resource "aws_cloudfront_distribution" "expense" {
+  origin {
+    domain_name              = "${var.project_name}-${var.environment}.${var.zone_name}"
+    origin_id                = "${var.project_name}-${var.environment}.${var.zone_name}"
+
+    custom_origin_config {
+        http_port = 80
+        https_port = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols = ["TLSv1.2"]
+    }
+  }
+
+  enabled             = true
+
+  aliases = ["${var.project_name}-cdn.${var.zone_name}"]
+
+  # dynamic content, evaluated at last no cache
+  default_cache_behavior {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "${var.project_name}-${var.environment}.${var.zone_name}"
+
+    viewer_protocol_policy = "redirect-to-https"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+    cache_policy_id = data.aws_cloudfront_cache_policy.noCache.id
+  }
+
+  # Cache behavior with precedence 0
+  ordered_cache_behavior {
+    path_pattern     = "/images/*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "${var.project_name}-${var.environment}.${var.zone_name}"
+
+    min_ttl                = 0
+    default_ttl            = 86400
+    max_ttl                = 31536000
+    compress               = true
+    viewer_protocol_policy = "redirect-to-https"
+    cache_policy_id = data.aws_cloudfront_cache_policy.cacheOptmised.id
+  }
+
+  # Cache behavior with precedence 1
+  ordered_cache_behavior {
+    path_pattern     = "/static/*"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id = "${var.project_name}-${var.environment}.${var.zone_name}"
+
+    min_ttl                = 0
+    default_ttl            = 86400
+    max_ttl                = 31536000
+    compress               = true
+    viewer_protocol_policy = "redirect-to-https"
+    cache_policy_id = data.aws_cloudfront_cache_policy.cacheOptmised.id
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "whitelist"
+      locations        = ["IN", "CA", "GB", "DE"]
+    }
+  }
+
+  tags = merge(
+    var.common_tags,
+    {
+        Name = local.resource_name
+    }
+  )
+
+  viewer_certificate {
+    acm_certificate_arn = local.https_certificate_arn
+    ssl_support_method = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+}
+
+module "records" {
+  source  = "terraform-aws-modules/route53/aws//modules/records"
+
+  zone_name = var.zone_name #daws81s.online
+  records = [
+    {
+      name    = "expense-cdn" # *.app-dev
+      type    = "A"
+      alias   = {
+        name    = aws_cloudfront_distribution.expense.domain_name
+        zone_id = aws_cloudfront_distribution.expense.hosted_zone_id # This belongs CDN internal hosted zone, not ours
+      }
+      allow_overwrite = true
+    }
+  ]
+}
+
+
+provider.tf 
+===============
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.73.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state-dev"
+    key    = "expense-cdn"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking-dev"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+=============
+
+variable "project_name" {
+    default = "expense"
+}
+
+variable "environment" {
+    default = "dev"
+}
+
+variable "common_tags" {
+    default = {
+        Project = "expense"
+        Terraform = "true"
+        Environment = "dev"
+    }
+}
+
+variable "frontend_tags" {
+    default = {
+        Component = "frontend"
+    }
+}
+
+variable "zone_name" {
+    default = "daws81s.fun"
+}
+
+
+In dashboard -> EXPENSE -> INFRA -> DEV -> new  item 
+	enter the item name - 50-acm 
+	select pipeline 
+	copy from - 00-vpc
+	click on OK 
+	script path - 50-acm/Jenkinsfile
+	apply and save 
+
+In dashboard -> EXPENSE -> INFRA -> DEV -> new  item 
+	enter the item name - 60-alb
+	select pipeline 
+	copy from - 00-vpc
+	click on OK 
+	script path - 60-alb/Jenkinsfile
+	apply and save
+	
+In dashboard -> EXPENSE -> INFRA -> DEV -> new  item 
+	enter the item name - 70-ecr
+	select pipeline 
+	copy from - 00-vpc
+	click on OK 
+	script path - 70-ecr/Jenkinsfile
+	apply and save
+	
+In dashboard -> EXPENSE -> INFRA -> DEV -> new  item 
+	enter the item name - 80-cdn
+	select pipeline 
+	copy from - 00-vpc
+	click on OK 
+	script path - 80-cdn/Jenkinsfile
+	apply and save	
+	
+
+Configuring agent 
+-------------------
+In dashboard-> manage jenkins -> nodes -> new node 
+	node name - AGENT-1 
+	Type - Permanent agent 
+	click on create 
+	No.of executors - 6 
+	Remote root directory - /home/ec2-user/jenkins-agent 
+	labels - AGENT-1
+	Usage - only build jobs with labels expressions matching this node 
+	launch method - launch agents via SSH 
+		Host - jenkins-agent.daws81s.fun
+		credentials - ssh-auth 
+		Host key verification strategy - non verifying verification strategy 
+	click on save 
+	
+	
+
+-> click on build now for 00-vpc 
+
+After creating infrastructure, we have to setup the EKS 
+
+EKS setup 
+--------------
+1. aws-loadbalancer-controller 
+
+ingress resource or target group binding 
+
+Application CICD 
+--------------------
+Build 
+Unit test 
+scans 
+build image 
+push image 
+Helm deploy 
+
+what are the jenkins agents you are using?
+--------------------------------------------
+VM are permanent agents 
+	you need to maintain them 
+	we need to maintain multiple agents for multiple projects 
+
+Temp/Ephemeral agents 
+	Docker containers 
+	K8 pods 
+
+	Jenkins-agents --> namespace 
+	use base image nodejs for nodejs projects 
+	use base image java for java projects
+	
+	
+	

@@ -1,0 +1,870 @@
+Day-64 session-64 (21/11/2024)
+------------------------------
+Master Agent architecture - important for interviews
+---------------------------
+example:
+-------
+1 acre 
+100 acres -> if you employ few resources 
+
+we have two types - master agent connection
+
+1. employee daily coming and checking with master for work 
+2. whenever master gets work, he will allocate to employee 
+
+CI servers -> 1 server across project 
+
+some applications uses Java 8 -> agent-java8 
+some applications uses Java 17 -> agent-java17 
+
+create an instance -> jenkins -> t2.small 
+-> Installation 
+
+-> sudo curl -O /etc/yum.repos.d/jenkins.repo \
+    https://pkg.jenkins.io/redhat-stable/jenkins.repo
+-> sudo cat /etc/yum.repos.d/jenkins.repo 
+-> sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+-> sudo yum upgrade (optional)
+# Add required dependencies for the jenkins package
+-> sudo yum install fontconfig java-17-openjdk -y 
+-> sudo yum install jenkins -y 
+-> sudo systemctl daemon-reload
+-> sudo systemctl start jenkins 
+-> sudo systemctl enable jenkins
+
+create another instance for agent as jenkins-agent -> t3.micro 
+-> login with the public ip to the superputty 
+-> sudo yum install java-17-openjdk -y 
+-> After installing java,we have to configure and login to the master  
+
+-> default jenkins configuration: /var/lib/jenkins --> JENKINS_HOME 
+-> In master, df -hT and check the allocation storage for /var 
+-> They have some requirements, the requirements are not matching. so, it is showing the warning
+-> we have two options 
+1. either we have to increase the volume storage when the creation of an instance and increasing the disk space 
+2. Or else In dashboard -> manage nodes -> nodes -> configure node monitors -> check the boxes - Don't mark the agents temporarily offline 
+-> apply and save 
+-> Build-in node -> master node 
+-> now, we have to add new node 
+-> Jenkins dashboard -> manage jenkins -> Nodes -> New node (AGENT-1) and check the permanent agent -> create 
+-> no.of executors - 3 
+-> remote root directory - /home/ec2-user/jenkins-agent 
+-> labels - AGENT-1 
+-> Usage - Only build joibs with label expressions matching this nodes
+-> launch method - launch agents via SSH 
+	Host - agent private ip address 
+	credentials - click on add 
+		Select the kind - username and password 
+		scope - global 
+		username - ec2-user 
+		password - DevOps321 
+		ID - ssh-auth 
+		description - ssh-auth 
+		-> Click on add 
+		-> After creation select the credentials 
+	Host key verification strategy - Non verifying verification strategy 
+	Availability - keep this agent online as much as possible 
+	-> click on save 
+-> open the AGENT-1 and click on log   
+
+Explanation of master-agent architecture?
+==========================================
+
+-> In CI, like jenkins environment master cannot satisfy all the requirements and all the work nodes 
+so, we can have different agents with the different configuration. we can connect the master with agent via ssh. we can provide the username, password, agent ip address, labels. while triggering pipelines, we can mention which agent that pipeline should run 
+
+In jenkins-agent
+
+-> ls -l 
+-> cd jenkins-agent/
+-> ls -l 
+
+In learn-jenkins - Jenkinsfile 
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+
+-> cd /c/devops/daws-81s/repos/learn-jenkins/
+-> git add . ; git commit -m "msg"; git push origin main 
+
+-> In dashboard -> new item -> hello-pipeline -> select pipeline -> Ok 
+-> In pipeline 
+	select Pipeline script from SCM 
+	SCM - Git
+	Repository URL - learn-jenkins https url 
+	Branches to build - */main 
+	Script path - Jenkinsfile
+	-> apply and save 
+-> click on build now 
+
+-> In dashboard -> manage plugins -> select plugins -> available plugins -> search for pipeline stage view and install 
+
+Conditions
+=============
+always
+-------
+Run the steps in the post section regardless of the completion status of the Pipeline’s or stage’s run.
+
+changed
+-------
+Only run the steps in post if the current Pipeline’s run has a different completion status from its previous run.
+
+fixed
+Only run the steps in post if the current Pipeline’s run is successful and the previous run failed or was unstable.
+
+regression
+Only run the steps in post if the current Pipeline’s or status is failure, unstable, or aborted and the previous run was successful.
+
+aborted
+Only run the steps in post if the current Pipeline’s run has an "aborted" status, usually due to the Pipeline being manually aborted. This is typically denoted by gray in the web UI.
+
+failure
+Only run the steps in post if the current Pipeline’s or stage’s run has a "failed" status, typically denoted by red in the web UI.
+
+success
+Only run the steps in post if the current Pipeline’s or stage’s run has a "success" status, typically denoted by blue or green in the web UI.
+
+unstable
+Only run the steps in post if the current Pipeline’s run has an "unstable" status, usually caused by test failures, code violations, etc. This is typically denoted by yellow in the web UI.
+
+unsuccessful
+Only run the steps in post if the current Pipeline’s or stage’s run has not a "success" status. This is typically denoted in the web UI depending on the status previously mentioned (for stages this may fire if the build itself is unstable).
+
+cleanup
+Run the steps in this post condition after every other post condition has been evaluated, regardless of the Pipeline or stage’s status.
+
+In Jenkins master node 
+----------------------
+-> ls -l 
+-> cd workspaces/ 
+-> ls -l 
+-> cd hello-pipeline
+-> ls -l 
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now 
+
+
+-> actually jenkins follows Groovy syntax - which is similar to java 
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'SECONDS')
+	}
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now 
+
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'MINUTES')
+	}
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				// sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now
+
+disableConcurrentBuilds - two builds runs alternatively
+
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'MINUTES')
+		disableConcurrentBuilds()
+	}
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				// sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click the build now two times at a time (one build waits for other)
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'MINUTES')
+		disableConcurrentBuilds()
+		retry(1)
+	}
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				// sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+				error 'pipeline failed'
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now 
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'MINUTES')
+		disableConcurrentBuilds()
+		// retry(1)
+	}
+	parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+
+        choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
+
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+    }
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				// sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+				// error 'pipeline failed'
+            }
+        }
+		stage('Print Params'){
+            steps{
+                echo "Hello ${params.PERSON}"
+                echo "Biography: ${params.BIOGRAPHY}"
+                echo "Toggle: ${params.TOGGLE}"
+                echo "Choice: ${params.CHOICE}"
+                echo "Password: ${params.PASSWORD}"  
+            }
+		}
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now 
+-> after clicking build now once then only we can able to see the build with paramaters option in dashboard
+-> click on build with paramaters
+	PERSON -> Sivakumar 
+	BIOGRAPHY -> 12 yrs expereinced 
+	click on TOGGLE 
+	CHOICE -> Two 
+	PASSWORD -> give the password 
+	click on build
+	
+triggers 
+----------
+-> whenever developer pushes to git, it should automatically trigger pipeline 
+-> Generally, these are called as webhooks 
+
+In github -> in learn-jenkins settings -> click on webhooks -> add webhooks 
+	Payload URL -> https://<master ip address>:8080/github-webhook/  -> / in the end is imporatant 
+	content type -> application/json 
+	SSL verification 
+		click on disable 
+	which events would you like to trigger this webhook? - let me select individual events 
+		select the pushes 
+	click on add webhooks 
+	
+In dashboard -> hello-pipeline -> configuration -> in build triggers -> select GitHub hook trigger for GITScm polling 
+-> apply and save 
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'MINUTES')
+		disableConcurrentBuilds()
+		// retry(1)
+	}
+	parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+
+        choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
+
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+    }
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				// sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+				// error 'pipeline failed'
+            }
+        }
+		stage('Print Params'){
+            steps{
+                echo "Hello ${params.PERSON}"
+                echo "Biography: ${params.BIOGRAPHY}"
+                echo "Toggle: ${params.TOGGLE}"
+                echo "Choice: ${params.CHOICE}"
+                echo "Password: ${params.PASSWORD}"  
+            }
+		}
+		stage('Approval'){
+            input {
+               message "Should we continue?"
+                ok "Yes, we should."
+                submitter "alice,bob"
+              parameters {
+                    string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+                }
+           }
+             steps {
+                 echo "Hello, ${PERSON}, nice to meet you."
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now 
+-> In approval -> we have to click on yes, we should 
+
+when you select create --> apply 
+when you select destroy --> destroy 
+
+pipeline {
+    agent {
+		label 'AGENT-1'
+	}
+	options{
+		timeout(time: 10, unit: 'MINUTES')
+		disableConcurrentBuilds()
+		// retry(1)
+	}
+	parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+
+        choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
+
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+    }
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+				// sh 'sleep 10' 
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+			when {
+				branch 'production'
+			}
+            steps {
+				sh "echo This is deploy"
+				// error 'pipeline failed'
+            }
+        }
+		stage('Print Params'){
+            steps{
+                echo "Hello ${params.PERSON}"
+                echo "Biography: ${params.BIOGRAPHY}"
+                echo "Toggle: ${params.TOGGLE}"
+                echo "Choice: ${params.CHOICE}"
+                echo "Password: ${params.PASSWORD}"  
+            }
+		}
+		stage('Approval'){
+            input {
+               message "Should we continue?"
+                ok "Yes, we should."
+                submitter "alice,bob"
+              parameters {
+                    string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+                }
+           }
+             steps {
+                 echo "Hello, ${PERSON}, nice to meet you."
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+			deleteDir()
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build -> here deploy gets skipped 
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 10, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    environment {
+        DEBUG = 'true'
+    }
+
+    parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+
+        choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
+
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+    }
+    stages {
+        stage('Build') {
+            steps {
+                sh 'echo This is Build'
+                //sh 'sleep 10'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'echo This is test'
+                sh 'env'
+            }
+        }
+        stage('Deploy') {
+            when {
+                expression { env.GIT_BRANCH == "origin/main" }
+            }
+            steps {
+
+                    sh 'echo This is deploy'
+                    //error 'pipeline failed'
+
+            }
+        }
+        stage('Print Params'){
+            steps{
+                echo "Hello ${params.PERSON}"
+                echo "Biography: ${params.BIOGRAPHY}"
+                echo "Toggle: ${params.TOGGLE}"
+                echo "Choice: ${params.CHOICE}"
+                echo "Password: ${params.PASSWORD}"  
+            }
+        }
+        // stage('Approval'){
+        //     input {
+        //         message "Should we continue?"
+        //         ok "Yes, we should."
+        //         submitter "alice,bob"
+        //         parameters {
+        //             string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+        //         }
+        //     }
+        //     steps {
+        //         echo "Hello, ${PERSON}, nice to meet you."
+        //     }
+        // }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+-> click on build now (it runs every part)
+
+
+-> If application wants to run, infra should be ready 
+-> It includes vpc, sg, bastion, rds, alb ingress, eks, cdn, ecr  
+
+-> Open the expense-decumentation 
+-> copy this url from the backend and download the files in it https://expense-builds.s3.us-east-1.amazonaws.com/expense-backend-v2.zip
+-> create a folder called backend in vs code and copy and paste the files 
+-> create a new repo as backend 
+
+-> create a file in backend folder - Jenkinsfile
+
+-> versions - read the version and tag docker image with this version 
+
+-> we have to install npm dependencies in jenkins-agent
+-> cd 
+-> sudo su - 
+-> dnf module disable nodejs -y 
+-> dnf module enable nodejs:20 -y 
+-> dnf install nodejs -y 
+-> exit 
+
+-> we have to install docker in jenkins-agent 
+-> sudo dnf -y install dnf-plugins-core
+-> sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+-> sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y 
+-> sudo usermod -aG docker ec2-user
+-> sudo systemctl start docker 
+
+-> Now once disconnect the agent and connect it again 
+-> In dashboard -> nodes -> AGENT-1 -> Disconnect -> click on yes 
+-> And then launch again 
+
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    environment {
+        DEBUG = 'true'
+        appVersion = '' // this will become global, we can use across pipeline
+    }
+
+    stages {
+        stage('Read the version') {
+            steps {
+                script{
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "App version: ${appVersion}"
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Docker build') {
+            
+            steps {
+
+                    sh """
+                    docker build -t mahalakshmi2997/backend:${appVersion} .
+                    docker images
+                    """
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+Dockerfile 
+------------
+
+FROM node:20 AS builder
+WORKDIR /opt/server
+COPY package.json .
+COPY *.js .
+RUN npm install
+
+
+FROM node:20.18.0-alpine3.20
+EXPOSE 8080
+ENV DB_HOST="mysql"
+RUN addgroup -S expense && adduser -S expense -G expense && \
+    mkdir /opt/server && \
+    chown -R expense:expense /opt/server
+WORKDIR /opt/server
+COPY --from=builder /opt/server /opt/server
+USER expense
+CMD ["node", "index.js"]
+# Before best practices implemented
+# FROM node:20
+# EXPOSE 8080
+# ENV DB_HOST="mysql"
+# RUN mkdir /opt/server
+# WORKDIR /opt/server
+# COPY package.json .
+# COPY *.js .
+# RUN npm install
+# CMD ["node", "index.js"]
+
+
+set the webhooks for backend in github 
+-> In GitHub -> backend repo -> settings -> webhooks -> add webhooks 
+	Payload URL - http://<agent public ip>:8080/github-webhook/ 
+	content type - application/json 
+	which events would you like to trigger this webhook? - let me select individual events - pushes 
+	-> click on add webhook
+
+-> In dashboard -> new item 
+	enter an item name - backend 
+	select pipeline 
+	click on OK 
+	-> In Build triggers - GitHub hook trigger for GITScm poling 
+	-> In pipeline -> pipeline script from scm 
+		SCM - Git
+		Repository URL -> backend repo https url 
+		branch specific -> */main 
+		Script path -> Jenkinsfile
+	-> apply and save 
+	
+
+-> click on build now 
+
+-> next push to ecr 
+-> k8 deployment 
+
+
+
+ 
+	

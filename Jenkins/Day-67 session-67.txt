@@ -1,0 +1,638 @@
+Day-67 session-67 (26/11/2024)
+-------------------------------
+
+Create the infrastructure 
+-> Now login to the bastion server into superputty 
+-> sudo dnf install mysql -y
+-> mysql -h expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com -u root -pExpenseApp1
+	-> USE transactions;
+	-> CREATE TABLE IF NOT EXISTS transactions (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		amount INT,
+		description VARCHAR(255)
+	);
+	-> CREATE USER IF NOT EXISTS 'expense'@'%' IDENTIFIED BY 'ExpenseApp@1';
+	-> GRANT ALL ON transactions.* TO 'expense'@'%';
+	-> FLUSH PRIVILEGES;
+-> exit 
+
+
+-> aws configure 
+-> aws eks update-kubeconfig --region us-east-1 --name expense-dev
+-> kubectl get nodes
+-> kubectl create namespace expense
+
+-> curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+
+-> aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+	
+-> eksctl create iamserviceaccount \
+--cluster=expense-dev \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+
+-> helm repo add eks https://aws.github.io/eks-charts
+
+-> helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev --set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller
+
+-> kubectl get pods -n kube-system
+
+In backend folder 
+==================
+In AWS -> In ecr -> expense/dev/bakend -> view  push commands  (we will get some commands)
+
+
+Jenkinsfile 
+==============
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    environment {
+        DEBUG = 'true'
+        appVersion = '' // this will become global, we can use across pipeline
+        region = 'us-east-1'
+        account_id = '315069654700'
+        project = 'expense'
+        environment = 'dev'
+        component = 'backend'
+    }
+
+    stages {
+        stage('Read the version') {
+            steps {
+                script{
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "App version: ${appVersion}"
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Docker build') {
+            
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                    aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                    docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                    docker images
+
+                    docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                    """
+                }
+            }
+        }
+        stage('Deploy'){
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        aws eks update-kubeconfig --region ${region} --name ${project}-${environment}
+                        cd helm
+                        sed -i 's/IMAGE_VERSION/${appVersion}/g' values-${environment}.yaml
+                        helm upgrade --install ${component} -n ${project} -f values-${environment}.yaml .
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+In dashboard -> EXPENSE -> new item 
+	enter a item name - backend 
+	select pipeline 
+	Click on OK 
+	In pipeline 
+		Definition - pipeline script from SCM 
+		SCM - git 
+		Repository URL - backend https url from github 
+		branch specifier - */main 
+		script path - Jenkinsfile 
+		apply and save 
+		
+-> click on build now 
+
+-> create a subfolder in backend called as helm 
+-> It has sub-folder as templates 
+
+manifest.yaml in templates folder 
+==================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: {{ .Values.configMap.db_host }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: "{{ .Values.deployment.imageURL }}:{{ .Values.deployment.imageVersion }}"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: backend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: backend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: {{ .Values.hpa.cpuUtilization }} # usually 75 in real environment
+ 
+Chart.yaml in helm folder 
+============================
+
+apiVersion: v1
+name: backend
+version: 0.0.1
+description: This chart is to manage backend application
+
+values-dev.yaml in helm folder 
+==============================
+configMap:
+  db_host: expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com
+deployment:
+  imageURL: 315069654700.dkr.ecr.us-east-1.amazonaws.com/expense/dev/backend
+  imageVersion: IMAGE_VERSION
+hpa:
+  cpuUtilization: 20
+  
+  
+sed editor(streamline editor) 
+=============================
+
+vim editor -> only for user, need to open and replace 
+
+In bastion server 
+====================
+-> sudo cp /etc/hosts hosts 
+-> ls 
+-> cat hosts 
+-> sed '1 i Hello' hosts   (It stores temporaryily )
+-> cat hosts 
+-> sed -i '1 i Hello' hosts   (It stores permanently)
+-> sed '1 a Hi' hosts  (1 a indicates which inserts one line after the first line)
+-> sed 's/local/LOCAL/g' hosts 
+
+-> kubens expense 
+-> helm list 
+-> kubectl get pods 
+-> kubectl logs <pod-name>
+
+In sir repo, expens-documentation -> download the frontend code 
+-> By using this url https://expense-builds.s3.us-east-1.amazonaws.com/expense-frontend-v2.zip
+
+-> Copy the files in it after downloading and paste it in a new folder which was created in vs code as frontend 
+-> copy all the files in code sub-folder under frontend folder 
+
+Jenkinsfile 
+=============
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    environment {
+        DEBUG = 'true'
+        appVersion = '' // this will become global, we can use across pipeline
+        region = 'us-east-1'
+        account_id = '315069654700'
+        project = 'expense'
+        environment = 'dev'
+        component = 'frontend'
+    }
+
+    stages {
+        stage('Read the version') {
+            steps {
+                script{
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "App version: ${appVersion}"
+                }
+            }
+        }
+        stage('Docker build') {
+            
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                    aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                    docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                    docker images
+
+                    docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                    """
+                }
+            }
+        }
+        stage('Deploy'){
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        aws eks update-kubeconfig --region ${region} --name ${project}-${environment}
+                        cd helm
+                        sed -i 's/IMAGE_VERSION/${appVersion}/g' values-${environment}.yaml
+                        helm upgrade --install ${component} -n ${project} -f values-${environment}.yaml .
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+Dockerfile 
+==============
+
+FROM nginx:mainline-alpine3.20-slim
+
+RUN rm -rf /etc/nginx/nginx.conf && \
+    rm -rf /etc/nginx/conf.d/default.conf && \
+    mkdir -p /var/cache/nginx/client_temp && \
+    mkdir -p /var/cache/nginx/proxy_temp && \
+    mkdir -p /var/cache/nginx/fastcgi_temp && \
+    mkdir -p /var/cache/nginx/uwsgi_temp && \
+    mkdir -p /var/cache/nginx/scgi_temp && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /etc/nginx/ && \
+    chmod -R 755 /etc/nginx/ && \
+    chown -R nginx:nginx /var/log/nginx && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid /run/nginx.pid
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY code /usr/share/nginx/html
+USER nginx
+#COPY expense.conf /etc/nginx/conf.d/expense.conf
+
+-> Now, create a sub-folder in frontend folder 
+-> create another sub-folder in helm called as templates 
+
+In templates -> deployment.yaml 
+=================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: expense
+  labels:
+    app: frontend
+    tier: web
+    project: expense
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      app: frontend
+      tier: web
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: web
+        project: expense
+    spec:
+      containers:
+      - name: frontend
+        image: "{{ .Values.deployment.imageURL }}:{{ .Values.deployment.imageVersion }}"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+
+
+hpa.yaml in templates 
+========================
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: frontend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: frontend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: {{ .Values.hpa.cpuUtilisation }}
+ 
+ 
+service.yaml in templates 
+==========================
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+    tier: web
+    project: expense
+  ports:
+  - name: frontend-port
+    protocol: TCP
+    port: 80 # service port
+    targetPort: 8080 # container port
+
+
+tgb.yaml in templates 
+==========================
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: frontend
+  namespace: expense
+spec:
+  serviceRef:
+    name: frontend # route traffic to the awesome-service
+    port: 80
+  targetGroupARN: {{ .Values.tgb.arn }}
+  targetType: ip
+  
+
+Chart.yaml in helm 
+===================
+
+apiVersion: v1
+name: frontend
+version: 0.0.1
+description: This chart is to manage frontend application
+
+values-dev.yaml 
+====================
+
+deployment:
+  replicas: 2
+  imageVersion: IMAGE_VERSION
+  imageURL: 315069654700.dkr.ecr.us-east-1.amazonaws.com/expense/dev/frontend
+hpa:
+  cpuUtilization: 15
+tgb:
+  arn: arn:aws:elasticloadbalancing:us-east-1:315069654700:targetgroup/expense-dev/9ea3f8f0a0ad93c3
+
+
+nginx.conf in frontend 
+========================
+
+user www-data;
+worker_processes 4;
+pid /var/run/nginx.pid;
+
+events {
+  worker_connections 768;
+  # multi_accept on;
+}
+
+http {
+
+  ##
+  # Basic Settings
+  ##
+
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+  keepalive_timeout 65;
+  types_hash_max_size 2048;
+  large_client_header_buffers 6 32k;
+  client_max_body_size 100m;
+
+  # server_names_hash_bucket_size 64;
+  # server_name_in_redirect off;
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  ##
+  # Logging Settings
+  ##
+  access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log debug; # change from debug to warn or error for production
+
+  ##
+  # Gzip Settings
+  ##
+  gzip on;
+  gzip_disable "msie6";
+
+  ##
+  # Virtual Host Configs
+  ##
+
+  include /etc/nginx/conf.d/*.conf;
+  include /etc/nginx/sites-enabled/*;
+
+  server {
+    listen       8080;
+    server_name  localhost;
+
+    proxy_http_version 1.1;
+
+    #charset koi8-r;
+    #access_log  /var/log/nginx/host.access.log  main;
+    #error_log /dev/stdout debug;
+    #rewrite_log on;
+
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+        ssi    on;
+    }
+
+    location /images/ {
+        expires 5s;
+        root   /usr/share/nginx/html;
+        try_files $uri /images/placeholder.png;
+    }
+
+    #error_page  404              /404.html;
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+
+    location /api/ { 
+        proxy_pass http://backend:8080/;
+    }
+
+    }
+
+}
+
+package.json in frontend 
+===========================
+
+{
+  "name": "Expense 3 Tier App",
+  "version": "1.0.2",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+  }
+}
+
+
+In bastion server 
+==================
+-> kubectl get pods 
+-> kubectl get targetgroupbinding 
+
+-> check the target groups in AWS whether they are healthy or not
+
+-> In chrome check the application 
+-> search for expense-cdn.daws81s.fun
+
+flow of the data -> cdn -> alb -> ingress(target rules and listeners) -> kubernetes -> data saved in rds 
+
+
+In github -> In frontend -> settings -> webhooks -> add webhooks
+	payload URL -> http://jenkins.daws81s.fun:8080/github-webhooks
+	content type -> application/json 
+	SSL verification -> Disable 
+	which events would you like to trigger this webhooks? -> let me select individual events -> select pushes 
+	click on add webhook
+
+-> In jenkins dashboard -> frontend -> configure 
+	In build trigger -> select GitHub hook trigger for GITScm polling 
+	click on apply and save 
+	
+
+DevsecOps 
+===============
+
+Scanning 
+----------
+shift left -> shifting the security scannings and testing in dev before pushing code to main branch. when developers push code to feature branch we should scan and test 
+
+static source code analysis -> sonarQube 
+static application secuirty testing -> sonarQube 
+dynamic application secuirty testing -> Veracode 
+open source library scan -> NexusIQ/GitHub 
+image scanning -> ECR scanning 
+
+
+Unit testing -> should be done by developers 
+functional testing -> testers 

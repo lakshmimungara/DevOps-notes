@@ -1,0 +1,370 @@
+Day-61 session-61(18/11/2024)
+------------------------------
+
+Example: coco cola drink 
+-------------------------
+we will take one drink into lab seperately, change the formula. Then we taste it as employees. If we don't like, we change the formula until we like it --> This is DEV environment 
+ 
+we cannot taste the drink directly....
+we will hire few tasters, we will give them drink. They provide some feedback. Based on their feedback we will change again. Finally they liked it --> This is QA environment
+
+we will do survey in multiple countries, we go to public. We randomly select one lakh  members, collect feedback. If they like it we can release --> This is UAT environment 
+
+If it is India, we have to take Fassai permission about new composition --> This is PRE-PROD environment
+
+Now we can release into market --> This is PROD environment
+
+It is not good idea to release the application in PROD environment
+
+-> environments are mandatory 
+-> Git places a key role in moving into different environments 
+
+What we learnt in Git till now
+--------------------------------
+-> creating a repo 
+-> git clone <url>
+-> git add --> staging area 
+-> git commit -m "" -> commit to local repo 
+-> git push -> push to central repo 
+
+-> Git is a distributed version control system
+-> application is focused at one place 
+-> If github stops working we cannot stop DEV environment. becoz, as it is setup is with us so we can work as we want and whenever github ups then we can push it to the github 
+-> when github is down, only push command doesn't work remaining we can do 
+-> we don't need central server. So, it is distributed version control system  
+-> Linus Torvalds -> who introduced Git and Linux in 2005 
+-> He thought of decentralized control system 
+
+Process for existing repo 
+----------------------------
+differenece between git repo and normal folder is .git 
+-> git init -> It converts a folder into git repo. .git folder will be created 
+-> git remote add origin <https url>
+-> git branch -M main 
+
+What is Branching? 
+------------------
+suppose we have a main branch -> points to production 
+
+Generally, we create another copy of the file, do the changes, carefully review the changes. If okay then edit into the main file 
+
+1. create another branch from main branch 
+2. do the changes 
+3. test the changes 
+4. scan the changes 
+
+-> If everything is fine bring those changes into main branch 
+-> Branching is mandatory 
+-> we shouldn't do any changes in the main branch. compulsory we have to create a new branch 
+
+SHA code
+---------
+-> It is a 40 char code 
+-> Generally Git is a key-value pair 
+-> we have a commit id for every repo in github 
+=> Go to github -> click on existed repo -> we have no.of commits on the right side of the files inside a repo -> so, copy the commit id 
+
+eg: key is dfjhrgnsdnvsd892349723569013rsdcfAssdfiw8er99eri -> value is our code 
+
+1. If the commit id is changed, we can say code is changed 
+2. If the code is changed, commit id also changed
+
+-> whenever you change anything in the code, commit id is calculated by the git through its internal algorithms 
+
+example: 
+---------
+echo "Hello world" | git hash-object --stdin 
+
+-> commit id gets changed whenever we change any space or case of the alphabets 
+-> Here we will get the commit id 
+-> so entire git is based on this commit id feature 
+
+-> create a new repo -> git-dosa 
+-> git clone <git-dosa https-url>
+-> create a readme.md file and add the text in it -> #Dosa 
+-> git add . ; git commit -m "meaningfull msg"; git push origin git-dosa
+
+So, now we have to keep some restrictions 
+-> nonody is allowed to do changes in main branch (main branch in the sense PROD)
+-> open the git-dosa repo -> go to settings in github -> branches -> add branch ruleset -> give the name of the branch -> click on check box of require a pull request before merging 
+-> when we take the code then we will have a pull request 
+-> pull request -> someone have to review before you merge changes into main branch 
+-> based on our team members, we can keep the no.of required approvals 
+1. restrict deletions 
+2. require a pull request before merging 
+3. block force pushes
+-> click on create 
+-> enforcement status should be active
+-> save the changes
+-> changes can be seen in files changed and we can see the new commits and total commits in a repo 
+-> we will find the commit which was created by git in the total no.of commits 
+
+
+
+-> create another branch from main branch, do changes, create Pull request. get the approval then merge changes 
+
+-> git log (we will get the commit id and note it)
+-> git checkout --help 
+-> git checkout -> creation of new branch 
+eg: git checkout -b <branch-name>
+-> git checkout -b plain-dosa 
+-> git log 
+
+readme.md 
+==========
+# Dosa 
+
+Dosa flour
+
+-> git add . ; git commit -m "dosa flour"; git push origin plain-dosa
+-> git log (we will get a new commit id as code changed)
+
+
+readme.md 
+==========
+# Dosa 
+
+Dosa flour
+Light oil added 
+
+-> git add . ; git commit -m "light oil added"; git push origin plain-dosa
+-> git log (again commit id changes)
+
+-> after successful completion of plain-dosa project we have to expose it to the public. So, now we have to merge with the main branch 
+
+-> open the github and the repo you can see the compare and pull request 
+-> click on compare and pull request 
+-> add a title -> create a plain dosa as part of dosa project 
+-> add a description -> In this feature, we added plain dosa. It contains 
+- Dosa battar 
+- Light oil 
+-> click on create pull request 
+
+-> git checkout main 
+-> git log (we will get only one commit)
+-> changes are done in central repo 
+-> git pull 
+-> git log (we will get all the changes which are modified)
+-> So, this is called as merge commit 
+-> We got a closed commit 
+
+-> git cat-file <commit-id> -p  -> here, we will get two parent ids 
+
+-> merge commit will have 2 parent commits 
+-> merging preserves history, at any point you can track all the history of changes 
+-> merge commit is an extra commit created by Git 
+
+-> now, we ahve to add people -> In settings -> collaboration and teams -> add people -> add the other person's github profile 
+-> choose a role -> give the write access 
+-> The other person has to accet the invitation 
+
+
+-> changes has to pull everytime 
+-> main branch is up-to date 
+-> now, we have to create another branch 
+-> git checkout -b karam-dosa 
+-> git log (we will get the new commits)
+
+readme.md 
+==========
+
+#Dosa 
+
+Dosa flour 
+Karam 
+
+-> git add . ; git commit -m "added karam"; git push origin karam-dosa
+-> git log (note down the commit id)
+
+readme.md 
+==========
+
+#Dosa 
+
+Dosa flour 
+Karam
+oil 
+
+-> git add . ; git commit -m "added oil"; git push origin karam-dosa
+-> git log (note down the commit id)
+
+-> gi to github and click on compare and pull request 
+-> add a title -> karam dosa added 
+-> add a description -> we recently added karam dosa with oil and karam -> create pull request
+
+-> go to Ruleset in settings -> add the target branches -> include by pattern -> main -> save the changes 
+-> click on files changed -> add the review -> finish your review -> submit review 
+-> open file changes -> review the changes -> click on approve and write down the review (okay, everything seems good to me) -> submit review 
+-> after submitting the review -> scroll down -> select the dropdown -> rebase and merge -> confirm rebase and merge 
+ 
+-> check the commit ids 
+-> git checkout main 
+-> git pull 
+-> git log 
+-> git cat-file <commit-id> -p (it has one parent)
+
+-> Rebase will not create extra commits 
+-> There is no history preserved in rebase since only one parent 
+-> commit id will be changed in rebase 
+
+-> If a branch is developed by multiple persons -> prefer merge 
+-> if you want history to be preserved -> go for merge 
+
+-> If a branch is developed by single person -> then go for rebase, make sure how rebase works 
+-> if you don't care for history -> go for rebase
+
+
+Merge vs rebase 
+----------------
+
+Merging 
+==========
+-> Combines changes one branch into another, preseving the history of the repository.
+-> Merging creates a new commit to the history and results in a diamond shaped, non-linear history 
+
+Rebasing 
+=========
+-> Moves changes from one branch to another, rewriting the history and creating a linear history. Rebasing doesn't create a merge commit 
+
+How you resolve merge conflicts?
+--------------------------------
+-> conflict comes when git finds different code in the same line. Then git will give conflict. now developers should discuss and resolve conflicts. 
+-> Git shows conflicts using less than and greater than symbols   
+-> we have to discuss and decide what code we can keep then remove the special character and proceed to commit 
+
+
+egg-dosa 
+-> we have a two mem in our team 
+
+egg-dosa suresh 
+egg-dosa ramesh 
+
+-> git pull 
+-> git checkout -b egg-suresh 
+
+readme.md 
+==========
+
+# Dosa 
+
+Dosa flour 
+Karam 
+Oil 
+
+# Egg dosa 
+
+
+-> open anothe window in gitbash 
+-> clone the git-dosa repo 
+-> git checkout -b egg-ramesh 
+ 
+readme.md 
+==========
+
+# Dosa 
+
+Dosa flour 
+Karam 
+Oil 
+
+# Egg dosa 
+
+Dosa flour 
+2 eggs 
+
+In suresh gitbash 
+------------------
+-> git add . ; git commit -m "added 2 eggs"; git push origin egg-suresh 
+-> git log (we will get the new commit id for adding 2 eggs)
+
+readme.md 
+==========
+
+# Dosa 
+
+Dosa flour 
+Karam 
+Oil 
+
+# Egg dosa 
+
+Dosa flour 
+2 eggs 
+karam 
+
+In suresh gitbash 
+------------------
+-> git add . ; git commit -m "added karam"; git push origin egg-suresh 
+-> git log --oneline(we will get the new commit id for adding karam)
+
+In ramesh gitbash window
+------------------------
+vim readme.md 
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+
+
+-> git status 
+-> git add . ; git commit -m "added 3 eggs"; git push origin egg-ramesh 
+-> git log --oneline 
+
+-> go to github -> click on compare and pull request -> add the title (egg dosa feature) 
+-> In files changed -> review the changes -> approve -> submit the review 
+-> merge the pull request 
+
+
+In ramesh gitbash window
+------------------------
+vim readme.md 
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+
+-> git add . ; git commit -m "added oil"; git push origin egg-ramesh 
+-> git log --oneline 
+
+-> go to github -> click on compare and pull request -> add the title (egg dosa by ramesh) 
+-> we will get some conflicts 
+
+-> git checkout main 
+-> git pull 
+-> git checkout egg-ramesh 
+-> git merge main 
+
+-> Open files in users for ramesh user 
+-> right click on the user ramesh and open it with notepad 
+
+-> git add , ; git commit -m "resolved conflicts"; git push origin egg-ramesh 
+
+
+-> In files changed -> review the changes -> approve -> submit the review 
+-> merge the pull request 
+
+
+Interview questions 
+====================
+1. merge vs rebase 
+
+
+
+
+
+
+
+

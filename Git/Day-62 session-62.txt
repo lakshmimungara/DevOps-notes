@@ -1,0 +1,419 @@
+Day-62 session-62 (19/11/2024)
+---------------------------------
+Recap:
+------
+GIt branching 
+merge 
+merge commit 
+rebase -> chnages the commit ids
+resolving merge conflicts 
+
+Today's class 
+---------------
+
+Branching strategy 
+------------------
+How you develop and how to release the application into production 
+
+-> 15 years back everything is desktop applications 
+
+
+git flow 
+---------
+we have two branches 
+1. main 
+2. development 
+-> these are the long lived branches for lifetime 
+
+shortlived branches 
+--------------------
+1. feature
+2. release 
+3. hotfix 
+
+develop branch source is: main 
+-> there is no merge in main branch becoz it is long lived 
+
+sprint-1 --> 4 weeks 
+--------------------
+single feature or multiple features or few defects  
+
+features-video-call -> all developers use this branch to do code changes 
+feature-whatsapp-status 
+
+source: develop 
+destination: develop 
+
+changes are merged to develop branch using pull request. changes are tested in development environment 
+
+If there are defects, create another feature branch. do the changes. again merge to develop branch. again test 
+
+now development environment is done 
+
+release branch 
+-----------------
+release/v1.2.3 
+
+source: development 
+destination: main and development 
+
+test the application in QA, UAT, etc. If there are defects. do the changes in release branch and test them in QA, UAT, etc 
+
+everything is good in all environments. then merge the chnages to master branch. release the application into production. merge the changes into develop branch 
+
+hotfix branch 
+--------------
+P0,P1, P2, P3, P4 
+
+P0 -> severe, business is completely down. 
+
+SLA -> service level agreement 
+P0 -> severe, business is completely down. 30 min 
+P1 -> severe, may be 2 hrs 
+P2 -> 
+P3 -> 
+P4 -> 
+
+source: main 
+destination: main and development 
+
+whatsapp supports multiple versions at a time, android too 
+
+for web applications git model is very heavy, we can move to github flow or feature branching model 
+
+feature branch model 
+---------------------
+It has two branches 
+1. main/master 
+2. feature 
+
+One feature is only developed by one person 
+
+CICD process we can run every feature branch 
+
+build, scan(all scans), unit test, deploy in dev, functionality test -> this is generally called as shift-left process 
+
+shift-left is an important strategy in feature branching model 
+
+shift-left is nothing but, it is including the scans and tests in the early stages of development instead of after development
+
+we will create Pull request to main branch. now we can deploy to QA, UAT, PRE-PROD, perf basically NON-PROD environments 
+
+after successful in all environments, finally we are going to PROD 
+-> approval process -> change release process 
+
+fix the date and time 
+
+a ticket is raised 
+
+change type, which application
+change description 
+date 
+time 
+approvals 
+what if change is failed? -> roll back process 
+tests report 
+scans report 
+sanity testing -> after release basic checks 
+what if sanity testing failed -> we have to do roll back 
+
+-> we have to take CR for this process and take all the approvals which depends on the particular  date and time based on deployment after this it goes to production 
+
+-> either if it is a old applications or a new applications CR process is compulsory -> after merging 
+
+About feature branching model 
+--------------------------------
+we are following feature branching model and we have a main branch a long lived branch and feature branch as short lived branch 
+-> we will create feature branch from main branch. we will do all the necessary changes. we are following shift-left process. for every commit we are doing in feature branch. we will scan it, build it, deploy it in development environment and do the functionality testing. once everything is fine we will raise a PR to main branch  
+-> from main branch again we will go to QA, UAT, like any non-production environment 
+-> Once everything is good in non-production environment, we will create a CR. so CR will have date, time, test report, scan report, change report, roll back process and everything is mentioned 
+-> Once we get the approval we go to production 
+-> In production, our support team will do the sanity checks. if it is failed then again it roll backs to deployment 
+
+
+git reset vs git revert --> important for interviews
+------------------------
+-> So, these commands are for the purpose of undo the changes 
+
+In git, we have a three terminologies 
+
+1. workspace -> where we write code 
+staging area -> changes are added to staging area from workspace 
+commit area -> changes are commited to gift from staging 
+
+git reset 
+---------
+-> useful before you push the changes to remote branches 
+
+-> 1. first we have to pull before push
+-> cd /git-dosa 
+-> git checkout -b panneer-masala 
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+
+-> git add . ; git commit -m "added panneer"
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+cheese 
+
+-> git add . ; git commit -m "added cheese"
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+cheese 
+mysore masala
+
+-> git add . ; git commit -m "added mysore masala"
+-> git log --oneline
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+cheese 
+mysore masala 
+garam masala 
+
+-> git add . ; git commit -m "added garam masala"
+
+
+undo the changes done already. we have 3 options 
+
+1. soft 
+2. mixed --> default
+3. hard 
+
+git reset --soft <commit-id> -> changes will be removed from commit and stayed in staging area 
+
+-> git log --oneline
+-> git reset --soft HEAD~1 
+-> git log --oneline
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+cheese 
+mysore masala 
+garam masala and ghee 
+
+-> git add . ; git commit -m "added garam masala and ghee"
+-> git log --oneline 
+-> git reset HEAD~1 
+-> git status (green color indicates it is in staging area and red color indicates it is in workspace and we should add it to the staging area)
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+cheese 
+mysore masala 
+garam masala and ghee and dalda 
+
+-> git log --oneline 
+
+git reset --hard HEAD~1 --> changes will be removed from commit, staging and workspace 
+-> git log --oneline
+
+-> reset rewrites the history, it changes commit ids 
+
+-> use reset only in local branches not remote branches 
+-> reset is prefered to do in local branches 
+
+git revert 
+----------
+git revert HEAD~1
+
+-> revert will not remove the commits, but we can do the changes to correct the wrong commits, history will not be changed. extra commits are added to corrcet wrong commits 
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+
+-> git add . ; git commit -m "added panneer and dosa"
+-> git log --oneline
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+ghee 
+
+-> git add . ; git commit -m "added ghee"
+
+readme.md 
+============
+
+# Dosa 
+
+Dosa flour 
+karam 
+oil 
+
+# Egg Dosa 
+
+3 eggs 
+oil
+karam 
+dosa flour 
+
+# panneer-masala Dosa 
+
+Dosa battar
+panneer 
+ghee 
+garam masala 
+
+-> git add . ; git commit -m "added garam masala"
+
+-> git revert HEAD~1  
+
+reset vs revert 
+----------------
+Key Differences
+Aspect						git reset		 				git revert
+History Impact				Rewrites history(destructive)	Preserves history (non-destructive)
+New Commit?					No								Yes
+Use Case					Adjust local commits	        Undo changes in a shared branch
+Working on Shared Branch?	Risky (may cause conflicts)	    Safe
+
+When to Use Which?
+Use git reset if you are working locally and haven’t shared the changes yet.
+Use git revert when you need to undo changes in a branch that others are using (e.g., after pushing to a remote).

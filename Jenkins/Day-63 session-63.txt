@@ -1,0 +1,426 @@
+Day-63 session-63 (20/11/2024)
+--------------------------------
+
+Recap :
+----------
+Branching strategy 
+reset vs revert 
+how to resolve conflicts 
+
+Now in today's class 
+--------------------
+cherry pick -> picking cherries
+restore 
+
+you can pick whatever cherries you want 
+
+when you find something useful in another branches, you can pick those commits instead of completely merge or rebase with that branch 
+
+-> Imagine 2 features branches, feature-1 and feature-2. feature-2 finds something useful in feature-1 instead of completely merging with it we can cherry-pick the commits we want 
+
+-> git checkout feature-1
+-> git pull 
+-> git checkout feature-2
+-> git log feature-1 -> you can see the commits, select what you want 
+-> git cherry-pick <commit-id> --> this may create conflicts, resolve and push 
+
+
+
+-> cd /git-dosa/
+-> git checkout main 
+-> git pull origin main 
+
+-> git checkout -b special-robert 
+
+special dosa 
+---------------
+robert and raheem 
+
+In another window of gitbash 
+------------------------------
+-> cd ~/git-dosa/ 
+-> git pull origin main 
+-> git checkout -b special-raheem 
+
+readme.md 
+===========
+
+# special dosa 
+
+dosa battar 
+
+-> git add . ; git commit -m "special dosa started"
+
+readme.md 
+===========
+
+# special dosa 
+
+dosa battar
+bombay chutney 
+
+-> git add . ; git commit -m "added bombay chutney"
+
+readme.md 
+===========
+
+# special dosa 
+
+dosa battar
+bombay chutney 
+podi 
+
+-> git add . ; git commit -m "added podi"
+
+readme.md 
+===========
+
+# special dosa 
+
+dosa battar
+bombay chutney 
+podi oil 
+
+-> git add . ; git commit -m "added oil"
+-> git log --oneline 
+-> git push origin special-robert
+
+-> Now, open github and click on compare and pull request 
+-> add a title -> special dosa by robert -> click on create pull request 
+
+-> pull request goes to other person and he finds it good and approves it by reviewing the changes 
+-> after accepting the pull request, we have the merge it 
+
+In another window of gitbash 
+------------------------------
+vim readme.md 
+
+
+# special dosa 
+
+dosa battar
+
+-> git add . ; git commit -m "special dosa started"
+-> vim readme.md 
+
+# special dosa 
+
+dosa battar
+podi 
+
+-> git add . ; git commit -m "added podi"
+-> vim readme.md 
+
+# special dosa 
+
+dosa battar
+podi
+karam 
+
+-> git add . ; git commit -m "added karam"
+
+-> vim readme.md 
+
+# special dosa 
+
+dosa battar
+podi
+karam 
+oil 
+
+-> git add . ; git commit -m "added oil"
+-> git push origin special-raheem
+
+-> Now, open github and click on compare and pull request 
+-> add a title -> special dosa by raheem -> click on create pull request
+
+-> git checkout main 
+-> git pull origin main 
+-> git checkout special-raheem
+-> git log main 
+-> git cherry-pick <commit-id-of-bombay chutney>
+
+-> vim readme.md 
+-> remove unwanted content and add bombay chutney
+
+# special dosa 
+
+dosa battar
+podi
+karam 
+oil 
+bombay chutney
+
+-> git add . ; git commit -m "picked bombay chutney from main"
+-> git push origin special-raheem
+
+
+git restore 
+-------------
+-> git restore --source <file-name> --> it can completely restore the file to that particular commit-id. but it will not remove the commit-id 
+-> restore works on particular file, reset or revert works on entire workspace 
+-> reset - rewrite the commit and change the commits 
+-> revert - it will add the extra commits 
+-> restore - it will not change anything in cmmit and it will stay in staging area 
+-> restore works for staging area 
+
+
+In special-robert 
+------------------
+-> git checkout main 
+-> git pull origin main 
+
+-> git checkout -b restore-test 
+
+readme.md 
+==========
+
+# Cheese dosa 
+
+Dosa battar 
+
+-> git add . ; git commit -m "added dosa battar"
+
+readme.md 
+==========
+
+# Cheese dosa 
+
+Dosa battar
+cheese 
+
+-> git add . ; git commit -m "added cheese"
+-> git status 
+-> git log --oneline 
+
+readme.md 
+==========
+
+# Cheese dosa 
+
+Dosa battar
+cheese 
+karam 
+oil 
+
+-> git add readme.md 
+-> git status (changes are in staging area)
+-> git restore --staged readme.md 
+-> git status (changes are in workspace)
+
+-> git add . ; git commit -m "restored to original"
+-> git log --oneline 
+-> git restore --source=<commit-id>
+
+
+
+CICD
+-----
+continuous Integration --> jenkins 
+
+
+Till now we have created project infra 
+Next, we have to deploy the applications 
+
+1. project infra 
+2. deploy applications 
+
+what is continuous Integration?
+----------------------------------
+
+-> It is the way of integrating the code from source and create artifact. 
+-> In between source and creating artifact we need t install dependencies, run unit test cases, scans, etc., Instead of doing this manually can automate through continuous integration tool jenkins. we are using jenkins for CI 
+
+Take one server 
+---------------
+1. git clone <url>
+2. npm install -> downloads dependencies 
+3. npm test -> unit test cases 
+4. sonar-scan 
+5. zip -> zip the application 
+
+-> Store the application into some other artifact server 
+-> we will take same steps for configuration with jenkins 
+-> It takes lot of time when the application is manually integrating 
+
+-> jenkins is a plain webserver. If you install plugins then jenkins can connect with other tools 
+-> plugins - adding functionalities 
+-> jenkins is a popular integration tool 
+
+
+create an instance -> t3.small instance type 
+
+Jenkins installation 
+---------------------
+-> Jenkins is developed by java. so, we should install java also 
+
+-> sudo curl -O /etc/yum.repos.d/jenkins.repo \
+    https://pkg.jenkins.io/redhat-stable/jenkins.repo
+-> sudo cat /etc/yum.repos.d/jenkins.repo 
+-> sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+-> sudo yum upgrade (optional)
+# Add required dependencies for the jenkins package
+-> sudo yum install fontconfig java-17-openjdk -y 
+-> sudo yum install jenkins -y 
+-> sudo systemctl daemon-reload
+-> sudo systemctl start jenkins 
+-> sudo systemctl enable jenkins
+
+-> Take the public address of the instance and paste it in the browser with 8080 port numbers 
+-> jenkins works on 8080 port number 
+
+eg: 23.20.8.173:8080 
+
+-> so, we will get the Unlock jenkins page with the location specified 
+eg: /var/lib/jenkins/secrets/initialAdminPassword 
+-> we will get one code in this location 
+-> sudo cat /var/lib/jenkins/secrets/initialAdminPassword 
+
+-> copy that code and paste in the unlock jenkins administration Password 
+-> Next, we will get customize jenkins -> click on Install suggested plugins -> it will add some plugins 
+-> After successful completion of installing the suggested plugins we will get create first Admin User page 
+-> Give the username -> admin 
+-> Password -> admin@123
+-> Confirm password -> admin@123
+-> Full name -> admin
+-> Email address -> admin@admin.com 
+-> Save and continue 
+-> we will get the Instance Configuration jenkins url -> https://23.20.8.173:8080/ 
+-> click on save and finish 
+-> we will get the jenkins home page -> start using jenkins
+
+-> jenkins is developed by java language 
+-> In jenkins everything is called a job. when you trigger it is called as build 
+
+-> In dashboard -> click new item 
+-> enter the item name -> hello-world 
+-> select the freestyle project and click on OK 
+
+
+we have three stages 
+----------------------
+pre-production shoot post-production 
+
+pre-build build post-build 
+
+-> hello-world -> configuration 
+-> In build steps -> select Execute shell -> echo "Hello world"
+-> click on apply and save it 
+-> Next, click on build now 
+-> So, we will get the build success click on and see the console output 
+-> we can add few more build steps after build success also 
+eg: echo "Hello world"
+sleep 5 
+echo "Hello Again"
+-> apply and save 
+
+
+
+Disadvantages in freestyle infra 
+-----------------------------------
+
+manually created infra vs IaaC 
+---------------------------------
+1. you can't restore if something goes wrong 
+2. we can track we did the changes 
+3. can't reuse 
+4. no review of changes 
+5. no version control 
+
+If you make it as pipeline and keep it in git 
+-> In jenkins dashboard -> new item 
+-> enter the item name - hello-pipeline and select pipeline and click on OK . 
+-> Next, Advanced project options - pipeline script -> select Hello world frm dropdown 
+-> apply and save 
+
+pipeline {
+	agent any 
+	
+	stages {
+		stage('Hello'){
+			steps {
+				echo 'Hello world'
+			}
+		}
+	}
+}
+
+-> In pipeline we have a multiple stages 
+-> Now, click on build now 
+-> we will get the build success 
+-> In dashboard -> manage jenkins -> plugins -> available plugins -> search for pipeline stage view -> click on install 
+-> After installation go back to dashboard and open hello-pipeline 
+
+
+-> create a folder -> learn-jenkins 
+-> create a repo with the same name 
+
+Jenkinsfile 
+============
+
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+}
+
+
+-> copy the https git url of the repo 
+-> in dashboard -> new item 
+-> enter the item name - sample-pipeline 
+-> select pipeline and click on OK 
+-> In pipeline -> select pipeline script from SCM 
+-> select Git -> paste the url in repository URL -> branch specific(blank for 'any') - */main -> and next script path - Jenkinsfile -> apply and save it 
+-> click on build now 
+
+
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+				sh "echo This is build"
+            }
+        }
+        stage('Test') {
+            steps {
+				sh "echo This is test"
+            }
+        }
+        stage('Deploy') {
+            steps {
+				sh "echo This is deploy"
+            }
+        }
+    }
+	post {
+		always{
+			echo "This section runs always"
+		}
+		success{
+			echo "This section run when pipeline success"
+		}
+		failure{
+			echo "This section run when pipeline failures"
+		}
+	}
+}
+
+-> click on build now 
+
+-> make sure you terminate the jenkins after practicing 
