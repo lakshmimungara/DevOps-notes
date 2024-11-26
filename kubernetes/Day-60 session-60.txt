@@ -1,0 +1,279 @@
+Day-60 session-60 (15/11/2024)
+---------------------------------
+How to push images to ECR 
+Daemonset   --> important for interviews
+ServiceAccount
+k8 architechture 
+
+ECR (elastic container registry)
+---------------------------------
+-> Go to AWS -> search for ECR 
+-> create ECR -> private repository -> Repositories -> create private repository
+-> Repository name -> expense/backend 
+-> Image tage mutability -> mutable 
+-> Image scanning settings -> enable the scan on push 
+-> click on create 
+
+
+-> git clone <expense-docker url>
+-> cd expense-docker
+-> cd backend/
+-> ls -l 
+-> docker build -t backend:v1 . 
+
+-> In every company images pushes to ECR and kubernetes prefer from ECR 
+-> In ECR -> view push commands 
+-> login with the first command which shows in view push commands 
+-> docker images 
+-> docker tag backend:v1 <3rd push-command>
+-> docker push <4th push command>
+-> after pushing the images comes to ECR 
+-> copy the url which shoes in ECR images and we use that one for pod definition 
+
+In terraform-aws-eks folder 
+------------------------------
+
+In sub-folder 70-ecr 
+
+main.tf 
+========
+resource "aws_ecr_repository" "backend" {
+  name                 = "expense/backend"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_repository" "frontend" {
+  name                 = "expense/frontend"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+provider.tf 
+===========
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state-bucket"
+    key    = "expense-ecr"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+
+-> cd ../70-ecr/
+-> terraform init 
+-> terraform plan 
+-> terraform apply -auto-approve 
+-> check if they are created in ECR 
+
+Types of sets 
+-------------
+Replicaset -> Replicaset cannot update the pods when you change the image version 
+
+DeploymentSet 
+StatefulSet 
+DaemonSet 
+
+-> If you run DaemonSet, k8 make sure of a pod runs on each and every node 
+
+for example, we have 3 nodes -> pull the logs from nodes 
+
+-> pod in each node to pull the logs 
+-> A DaemonSet defines pods that provide node-local facilities. These might be fundamental to the operation of your cluster, such as a networking helper tool, or be part of an add-on 
+-> Uses od daemonset
+1. running a cluster storage daemon on every node 
+2. running a logs collection daemon on every node 
+3. running a node monitoring daemon on every node 
+
+
+In k8-resources 
+
+17-daemonset.yaml 
+==================
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-elasticsearch
+  namespace: kube-system
+  labels:
+    k8s-app: fluentd-logging
+spec:
+  selector:
+    matchLabels:
+      name: fluentd-elasticsearch
+  template:
+    metadata:
+      labels:
+        name: fluentd-elasticsearch
+    spec:
+      tolerations:
+      # these tolerations are to have the daemonset runnable on control plane nodes
+      # remove them if your control plane nodes should not run pods
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: fluentd-elasticsearch
+        image: quay.io/fluentd_elasticsearch/fluentd:v2.5.2
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+      # it may be desirable to set a high priority class to ensure that a DaemonSet Pod
+      # preempts running Pods
+      # priorityClassName: important
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: varlog
+        hostPath: # getting access to the underlying host
+          path: /var/log
+		  
+		  
+
+-> kubectl apply -f 17-daemonset.yaml
+-> kubectl get pods -n kube-system (we will get the 3 worker nodes with fluentd name)
+-> kubectl exec -it <pod-fluentd-name> -n kube-system -- bash 
+-> cd /var/log/ 
+-> ls -l 
+
+
+ServiceAccount
+---------------
+-> It is not human user, it is created for system purpose 
+-> A service account is a type of non-human account that, in Kubernetes, provides a distinct identity in a Kubernetes cluster. Application Pods, system components, and entities inside and outside the cluster can use a specific ServiceAccount's credentials to identify as that ServiceAccount. This identity is useful in various situations, including authenticating to the API server or implementing identity-based security policies.
+
+for example: 
+-------------
+trainee -> He can create pods, but he can't get the secrets or list the secrets 
+
+run the pod with service account,this service account have access to get the secrets 
+
+-> for every namespace it will create one default service account 
+
+In k8-resources
+-> kubectl create namespace expense 
+-> kubens expense 
+-> kubectl get sa 
+
+
+18-sa.yaml 
+==========
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secret-reader
+  namespace: expense
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: expense
+  name: secret-reader
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+# This role binding allows "jane" to read pods in the "default" namespace.
+# You need to already have a Role named "pod-reader" in that namespace.
+kind: RoleBinding
+metadata:
+  name: secret-reader
+  namespace: expense
+subjects:
+# You can specify more than one "subject"
+- kind: ServiceAccount
+  name: secret-reader # "name" is case sensitive
+  namespace: expense
+roleRef:
+  # "roleRef" specifies the binding to a Role / ClusterRole
+  kind: Role #this must be Role or ClusterRole
+  name: secret-reader # this must match the name of the Role or ClusterRole you wish to bind to
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  serviceAccountName: secret-reader
+  containers:
+  # docker run -d --name nginx nginx
+  - name: nginx
+    image: nginx:stable-perl
+    
+  
+-> kubectl apply -f 18-sa.yaml
+-> kubectl get pods 
+-> kubectl describe pod nginx 
+ 
+
+K8-architecture 
+------------------
+Coming to k8-architecture, we have two things i.e master and node 
+
+master and node 
+-----------------
+
+master 
+------
+1. api server -> intercepts every request to k8, checks authorization 
+
+2. scheduler -> schedules the pods on to worker nodes, it checks taints, tolerations, node selectors, affinity,anti affinity, hardware requirements, free CPU and memory 
+
+3. Controller 
+	a) replica controller -> make sure always desired no.of pods arerunning 
+	b) node controller -> monitoring the nodes continuosly 
+	c) job controller -> checks jobs 
+	d) EndpointSlice controller -> establish connection between service and pods 
+	e) SA controller -> creates default sa for namespace 
+	
+4. etcd -> DB for our k8 configuration 
+
+node
+-----
+
+1. kubelet -> agent running inside worker node, to communicate with master 
+-> It make sure that containers are running in a pod 
+
+2. kube-proxy -> setup networking rules and policies to nodes and pods 
+
+3. container runtime -> container-d, crio. 
+
+add-ons -> VPC CNI, dns, kube-proxy 
+ 
+Kubernetes contains master and node components, master node will have api server, api server will intersepts with every requests to the kubernetes and checks authorization and forwards the request to the scheduler.
+-> Scheduler will schedules the pods on to worker nodes, it checks taints, tolerations, node selectors, affinity,anti affinity, hardware requirements, free CPU and memory
+-> And Controller component will make sure that specified no.of replicas are running,checking the nodes and creating the service accounts 
