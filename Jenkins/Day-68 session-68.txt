@@ -1,0 +1,335 @@
+Day-68 session-68 (27/11/2024)
+------------------------------
+-> Build the infrastruture 
+-> we will get the bastion server login to it in superputty 
+-> Install mysql - sudo dnf install mysql -y 
+-> mysql -h expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com -u root -pExpenseApp1
+	-> USE transactions;
+	-> CREATE TABLE IF NOT EXISTS transactions (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		amount INT,
+		description VARCHAR(255)
+	);
+	-> CREATE USER IF NOT EXISTS 'expense'@'%' IDENTIFIED BY 'ExpenseApp@1';
+	-> GRANT ALL ON transactions.* TO 'expense'@'%';
+	-> FLUSH PRIVILEGES;
+
+-> aws configure 
+-> aws eks update-kubeconfig --region us-east-1 --name expense-dev
+-> kubectl get nodes
+-> kubectl create namespace expense
+-> curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+-> aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+-> eksctl create iamserviceaccount \
+--cluster=expense-dev \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+-> helm repo add eks https://aws.github.io/eks-charts
+-> helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev --set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller
+-> kubectl get pods -n kube-system
+
+we have setup sonarQube... it uses in two different ways 
+
+Scans 
+-------
+1. static source code analysis 
+2. static application security testing 
+3. dynamic application security testing -> it is time taken process and 1 time for every release. for this we use veracode -. free trail only for business emails 
+4. Image scanning through ECR scan
+5. dependencies scan -> Nexus scan, blackduck, Dependabot 
+
+
+Create an instance 
+-> instance name - sonarQube 
+-> AMI -> search for sonar and slect the SonarQube CE on AWS and subscribe it 
+-> instance type - t2.medium 
+-> key - create one key for login redentials in future 
+-> security group - allow-all 
+-> create an instance 
+
+take the sonarqube(instance) public ip address and create a route53 record 
+-> click on create a record 
+-> record name - sonar-public 
+-> value - sonarqube public ip address 
+-> TTl - 1 sec 
+-> create records 
+
+take the sonarqube (instance) private ip address and create a route53 record 
+-> click on create a record 
+-> record name - sonar-private 
+-> value - sonarqube private ip address 
+-> TTl - 1 sec 
+-> create records 
+
+-> In chrome, sonar-public.daws81s.fun:9000
+-> we will get the sonarqube login page 
+-> login username - admin 
+-> password - either admin or else instance id 
+-> Update your password 
+	old password - 
+	new password - 
+	confirm password - 
+	click on Update 
+	
+-> Sonar scanner is the agent in jenkins
+-> we have to install the sonar scanner in jenkins 
+-> It access the code in jenkins and analyses it and sends to sonarqube server 
+-> sonarQube server analyses the result and revert back the information to the jenkins 
+
+-> sonar scanner should know the server infromation 
+1. sonar scanner analyse the code 
+2. sonar server configuration should be there 
+3. scanner reads the config and update the results 
+
+In jenkins dashboard -> manage jenkins -> plugins -> available plugins 
+	search for sonarQube scanner and install it 
+	
+In dashboard -> manage jenkins -> Tools 
+	In SonarQube Scanner installation 
+	-> add SonarQube scanner 
+		Name - sonar-6.0 
+		Install from maven central - version -> SonarQube Scanner 6.2.1.4610
+	-> apply and save 
+	
+Configuring the system server 
+-> In dashboard -> manage jenkins -> system 
+		SonarQube servers 
+		-> click on Add sonarQube
+			Name - sonar-6.0 
+			server URL - http://sonar-private.daws81s.online:9000sonar authentication token 
+				[for authentication - Go to my account in sonaqube home page, next go to security and then generate token (name - jenkins, Type - Gobal analysis token, and click on generate and copy the token)]
+			click on add - jenkins 
+				Kind - secret text 
+				secret - paste the authentication token 
+				ID - secret-token 
+				description - secret-token
+				
+				
+In backend folder 
+
+Jenkinsfile 
+==============
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    environment {
+        DEBUG = 'true'
+        appVersion = '' // this will become global, we can use across pipeline
+        region = 'us-east-1'
+        account_id = '315069654700'
+        project = 'expense'
+        environment = 'dev'
+        component = 'backend'
+    }
+
+    stages {
+        stage('Read the version') {
+            steps {
+                script{
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "App version: ${appVersion}"
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        /* stage('SonarQube analysis') {
+            environment {
+                SCANNER_HOME = tool 'sonar-6.0' //scanner config
+            }
+            steps {
+                // sonar server injection
+                withSonarQubeEnv('sonar-6.0') {
+                    sh '$SCANNER_HOME/bin/sonar-scanner'
+                    //generic scanner, it automatically understands the language and provide scan results
+                }
+            }
+        }
+
+        stage('SQuality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        } */
+        stage('Docker build') {
+            
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                    aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                    docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                    docker images
+
+                    docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                    """
+                }
+            }
+        }
+        stage('Deploy'){
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        aws eks update-kubeconfig --region ${region} --name ${project}-${environment}
+                        cd helm
+                        sed -i 's/IMAGE_VERSION/${appVersion}/g' values-${environment}.yaml
+                        helm upgrade --install ${component} -n ${project} -f values-${environment}.yaml .
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+sonar-project.properties 
+==========================
+
+sonar.projectKey=backend
+sonar.projectName=backend
+sonar.sources=.
+sonar.exclusions=helm,schema,Dockerfile,Jenkinsfile,node_modules
+
+
+In dashboard -> EXPENSE -> new item 
+	enter an item name - backend 
+	select pipeline 
+	click on OK 
+	In Pipeline 
+		Definition - pipeline script from SCM 
+		SCM - Git 
+		repository url - backend repo https url 
+		branch - */main 
+		script path - Jenkinsfile 
+	apply and save 
+	
+	
+-> click on build now 
+-> check on builds, console output 
+
+-> After successful completion of execution, we will get the overall analysis in the sonarqube (i.e., security, reliability, maintainability, security hotspots etc)
+
+
+10 functions causing 100 lines code -> if you test this 10 functions then code coverage is 100% 
+
+code coverage should be min 80% 
+
+By default, it shows passed where we haven't kept any restrictions 
+-> Now, we are keeping some restrictions 
+-> In sonarqube homepage, go to Quality gates
+	create Quality gate - expense 
+	now, click on unlock editing 
+	click on add condition 
+		1. where? - on overall code 
+			Quality gate fails when - Condition coverage 
+			operator value - 80 
+		2. where? - On overall code 
+		   Quality gate fails when - issues
+		   operator value - 0 
+		3. where? - On overall code 
+		   Quality gate fails when - security rating
+		   operator value - B
+		4. where? - On overall code 
+		   Quality gate fails when - Bugs
+		   operator value - 0 
+		5. where? - On overall code 
+		   Quality gate fails when - code smells
+		   operator value - 0 
+		6. where? - On overall code 
+		   Quality gate fails when - Vulnerabilities
+		   operator value - 0 
+	
+	
+-> we have new code and overall code 
+
+for example., 
+commit1 -> first time code 
+commit2 
+
+overall code = commit1+commit2
+new code = c2-c1 
+
+What is Quality gate? - imporatant for interviews
+--------------------------------------------------
+-> we have Quality gate implemented in our project. we have implemented for overall code and a new code 
+-> issues - 0, bugs should be 0, security rating should be A, maintainability rating should be A, code coverage should be 80%, code smells should be 0, Vulnerabilities should be 0 
+
+-> we can add no.of conditions for Quality gates, and we can make it as default for every project as well 
+
+-> Now, in jenkins dashboard. click on build now for backend 
+
+
+
+In backend - Jenkinsfile 
+===========================
+
+stage('SQuality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+		
+
+-> If it has to wait, we have to give jenkins details to the sonarqube 
+-> In sonarqube, Go to Administration and then click on dropdown of configuration and then click on webhooks 
+-> click on create 
+-> name - jenkins 
+-> URL - http://jenkins.daws81s.fun:8080/sonarqube-webhook/
+
+-> In jenkins dashboard, click on build now for backend 
+
+In dashboard -> EXPENSE -> new item 
+	enter an item name - frontend
+	select pipeline 
+	click on OK 
+	In Pipeline 
+		Definition - pipeline script from SCM 
+		SCM - Git 
+		repository url - frontend repo https url 
+		branch - */main 
+		script path - Jenkinsfile 
+	apply and save 
+	
+-> click on build now 
+-> check the target group pods in AWS, target group if they are healthy or not 
+
+-> In chrome,access the application  expense-cdn.daws81s.fun 
+
+Image is our output 
+DEV -> use that image, but different config values-dev.yaml 
+QA/UAT/PROD -> use the same image, but different config values-prod.yaml 
