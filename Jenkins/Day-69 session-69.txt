@@ -1,0 +1,843 @@
+Day-69 session-69 (28/11/2024)
+--------------------------------
+1. seperate CI and CD, becoz we can use CD job to deploy our application to multiple environments. build once and run anywhere 
+
+100 commits -> no need to deploy 100 times.. worst case 100th time deploy should be there 
+
+-> our pipeline will have an option to choose deploy or not 
+
+backend -> upstream 
+backend-deploy -> just helm charts.downstream 
+
+1. project 
+2. component 
+3. appVersion
+4. region 
+5. account_id 
+6. environment 
+
+
+-> Install mysql - sudo dnf install mysql -y 
+-> mysql -h expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com -u root -pExpenseApp1
+	-> USE transactions;
+	-> CREATE TABLE IF NOT EXISTS transactions (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		amount INT,
+		description VARCHAR(255)
+	);
+	-> CREATE USER IF NOT EXISTS 'expense'@'%' IDENTIFIED BY 'ExpenseApp@1';
+	-> GRANT ALL ON transactions.* TO 'expense'@'%';
+	-> FLUSH PRIVILEGES;
+
+-> aws configure 
+-> aws eks update-kubeconfig --region us-east-1 --name expense-dev
+-> kubectl get nodes
+-> kubectl create namespace expense
+-> curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.10.0/docs/install/iam_policy.json
+-> aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+-> eksctl create iamserviceaccount \
+--cluster=expense-dev \
+--namespace=kube-system \
+--name=aws-load-balancer-controller \
+--attach-policy-arn=arn:aws:iam::315069654700:policy/AWSLoadBalancerControllerIAMPolicy \
+--override-existing-serviceaccounts \
+--region us-east-1 \
+--approve
+-> helm repo add eks https://aws.github.io/eks-charts
+-> helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=expense-dev --set serviceAccount.create=true --set serviceAccount.name=aws-load-balancer-controller
+-> kubectl get pods -n kube-system
+
+
+create a folder called as backend 
+===================================
+Jenkinsfile
+==============
+
+@Library('jenkins-shared-library') _ // gets the global pipeline libraries in system configuration
+
+def configmap = [
+    project: "expense",
+    component: "backend"
+]
+
+if( ! env.BRANCH_NAME.equalsIgnoreCase('main')){ // true, if branch is feature branch
+    nodeJSEKSPipeline(configmap)
+}
+else{
+    echo "Follow the process of PROD release"
+}
+
+
+Jenkinsfile.bkp 
+==================
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    environment {
+        DEBUG = 'true'
+        appVersion = '' // this will become global, we can use across pipeline
+        region = 'us-east-1'
+        account_id = '315069654700'
+        project = 'expense'
+        environment = 'dev'
+        component = 'backend'
+    }
+
+    stages {
+        stage('Read the version') {
+            steps {
+                script{
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "App version: ${appVersion}"
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        /* stage('SonarQube analysis') {
+            environment {
+                SCANNER_HOME = tool 'sonar-6.0' //scanner config
+            }
+            steps {
+                // sonar server injection
+                withSonarQubeEnv('sonar-6.0') {
+                    sh '$SCANNER_HOME/bin/sonar-scanner'
+                    //generic scanner, it automatically understands the language and provide scan results
+                }
+            }
+        }
+
+        stage('SQuality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        } */
+        stage('Docker build') {
+            
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                    aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                    docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                    docker images
+
+                    docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                    """
+                }
+            }
+        }
+        stage('Deploy'){
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        aws eks update-kubeconfig --region ${region} --name ${project}-${environment}
+                        cd helm
+                        sed -i 's/IMAGE_VERSION/${appVersion}/g' values-${environment}.yaml
+                        helm upgrade --install ${component} -n ${project} -f values-${environment}.yaml .
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+Jenkinsfile.bkp1
+=================
+
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    parameters{
+        booleanParam(name: 'deploy', defaultValue: false, description: 'Select to deploy or not')
+    }
+    environment {
+        DEBUG = 'true'
+        appVersion = '' // this will become global, we can use across pipeline
+        region = 'us-east-1'
+        account_id = '315069654700'
+        project = 'expense'
+        environment = 'dev'
+        component = 'backend'
+    }
+
+    stages {
+        stage('Read the version') {
+            steps {
+                script{
+                    def packageJson = readJSON file: 'package.json'
+                    appVersion = packageJson.version
+                    echo "App version: ${appVersion}"
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        /* stage('SonarQube analysis') {
+            environment {
+                SCANNER_HOME = tool 'sonar-6.0' //scanner config
+            }
+            steps {
+                // sonar server injection
+                withSonarQubeEnv('sonar-6.0') {
+                    sh '$SCANNER_HOME/bin/sonar-scanner'
+                    //generic scanner, it automatically understands the language and provide scan results
+                }
+            }
+        }
+
+        stage('SQuality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        } */
+        stage('Docker build') {
+            
+            steps {
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                    aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                    docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                    docker images
+
+                    docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                    """
+                }
+            }
+        }
+        stage('Deploy'){
+            when {
+                expression { params.deploy }
+            }
+            steps{
+                build job: 'backend-cd', parameters: [
+                    string(name: 'version', value: "$appVersion"),
+                    string(name: 'ENVIRONMENT', value: "dev"),
+                ], wait: true
+            }
+        }
+ 
+
+ }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+
+
+In backend-cd folder 
+----------------------
+
+
+Jenkinsfile 
+============
+pipeline {
+    agent {
+        label 'AGENT-1'
+    }
+    options{
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+        //retry(1)
+    }
+    parameters{
+        choice(name: 'ENVIRONMENT', choices: ['dev', 'qa', 'uat', 'pre-prod', 'prod'], description: 'Select your Environment')
+        string(name: 'version',  description: 'Enter your application version')
+        string(name: 'jira-id',  description: 'Enter your jira id')
+    }
+    environment {
+        appVersion = '' // this will become global, we can use across pipeline
+        region = 'us-east-1'
+        account_id = ''
+        project = 'expense'
+        environment = ''
+        component = 'backend'
+    }
+
+    stages {
+        
+        stage('Setup Environment'){
+            steps{
+                script{
+                    environment = params.ENVIRONMENT
+                    appVersion = params.version
+                    account_id = pipelineGlobals.getAccountID(environment)
+                }
+            }
+        }
+        stage('Integration tests'){
+            when {
+                expression {params.ENVIRONMENT == 'qa'}
+            }
+            steps{
+                script{
+                    sh """
+                        echo "Run integration tests"
+                    """
+                }
+            }
+        }
+        stage('Check JIRA'){
+            when {
+                expression {params.ENVIRONMENT == 'prod'}
+            }
+            steps{
+                script{
+                    sh """
+                        echo "check jira status"
+                        echo "check jira deployment window"
+                        echo "fail pipeline if above two are not true"
+                    """
+                }
+            }
+        }
+        stage('Deploy'){
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                    sh """
+                        aws eks update-kubeconfig --region ${region} --name ${project}-dev
+                        cd helm
+                        sed -i 's/IMAGE_VERSION/${appVersion}/g' values-${environment}.yaml
+                        helm upgrade --install ${component} -n ${project} -f values-${environment}.yaml .
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always{
+            echo "This sections runs always"
+            deleteDir()
+        }
+        success{
+            echo "This section run when pipeline success"
+        }
+        failure{
+            echo "This section run when pipeline failure"
+        }
+    }
+}
+
+create a sub-folder helm 
+--------------------------
+
+Chart.yaml in helm 
+======================
+
+apiVersion: v1
+name: backend
+version: 0.0.1
+description: This chart is to manage backend application
+
+
+values-dev.yaml 
+==================
+configMap:
+  db_host: expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com
+deployment:
+  imageURL: 315069654700.dkr.ecr.us-east-1.amazonaws.com/expense/dev/backend
+  imageVersion: IMAGE_VERSION
+hpa:
+  cpuUtilization: 20
+  
+
+values-prod.yaml 
+==================
+
+
+configMap:
+  db_host: expense-dev.czn6yzxlcsiv.us-east-1.rds.amazonaws.com
+deployment:
+  imageURL: 315069654700.dkr.ecr.us-east-1.amazonaws.com/expense/dev/backend
+  imageVersion: IMAGE_VERSION
+hpa:
+  cpuUtilization: 20
+
+create a sub-folder in helm as templates 
+------------------------------------------
+manifest.yaml 
+==================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend
+  namespace: expense
+data:
+  DB_HOST: {{ .Values.configMap.db_host }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: expense
+  labels:
+    app: backend
+    tier: api
+    project: expense
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      tier: api
+      project: expense
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: api
+        project: expense
+    spec:
+      containers:
+      - name: backend
+        image: "{{ .Values.deployment.imageURL }}:{{ .Values.deployment.imageVersion }}"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          # limits is greater than or equal to requests
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        envFrom:
+        - configMapRef:
+            name: backend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backend
+  namespace: expense
+spec:
+  selector:
+    app: backend
+    tier: api
+    project: expense
+  ports:
+  - name: backend-port
+    protocol: TCP
+    port: 8080 # service port
+    targetPort: 8080 # container port
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+ name: backend
+ namespace: expense
+spec:
+ scaleTargetRef:
+   apiVersion: apps/v1
+   kind: Deployment
+   name: backend
+ minReplicas: 1
+ maxReplicas: 10
+ targetCPUUtilizationPercentage: {{ .Values.hpa.cpuUtilization }} # usually 75 in real environment
+
+
+In dashboard -> new  item 
+	enter the item name - backend 
+	select folder 
+	click on OK 
+	
+In dashboard -> backend -> new  item 
+	enter the item name - backend-ci  
+	select folder 
+	click on OK 
+	In pipeline 
+		select definition - pipeline from SCM 
+		SCM - Git 
+		Repository URL - backend folder https url 
+		branch - */main 
+		script path - Jenkinsfile
+	apply and save 
+
+-> click on build with parameters 
+-> select deploy and click on build 
+
+
+In dashboard -> backend -> new  item 
+	enter the item name - backend-cd
+	select folder 
+	click on OK 
+	In pipeline 
+		select definition - pipeline from SCM 
+		SCM - Git 
+		Repository URL - backend-cd folder https url 
+		branch - */main 
+		script path - Jenkinsfile
+	apply and save 
+
+
+-> click on build with parameters 
+-> select the environment and click on build 
+
+
+In Jenkins master node in superputty, 
+-> kubens expense 
+-> kubectl get pods 
+
+Multi branch pipeline -> a pipeline should be there for every feature branch to support their development 
+
+It is tough to maintain 100 components/microservices in 100 jenkins files 
+
+-> so, we use jenkins-shared-library
+
+what is the concept of code reuse?
+-------------------------------------
+example: 
+function(input)
+1. You can call any no.of times 
+2. It takes input and process something 
+
+jenkins-shared-library -> pipeline as a function, it takes input and run the pipeline -> these are called central 
+
+advantages of jenkins-shared-library
+-------------------------------------
+any no.of projects can call this shared pipeline at a time 
+no need to maintain pipeline differently for different project 
+easy updates 
+enforce standards at the high level 
+
+nodeJSEKSPipeline(input) -> by default call function will be called 
+
+nodeJSEKSPipeline.function_name()
+
+Central DevOps engineers 
+---------------------------
+Ansible roles 
+Terraform modules 
+Jenkins central pipelines
+
+while writing central pipelines, we have to remember things be like 
+1. what is the programming language 
+2. what is the deployment platform 
+3. what is the build tool -> maven and gradle, ant 
+
+nodeJSEKSPipeline
+nodeJSVMPipeline
+
+In jenkins-shared-library folder 
+-> create a sub-folder as vars 
+
+nodeJSEKSPipeline.groovy 
+========================
+def call(Map configMap){
+    pipeline {
+        agent {
+            label 'AGENT-1'
+        }
+        options{
+            timeout(time: 30, unit: 'MINUTES')
+            disableConcurrentBuilds()
+            //retry(1)
+        }
+        parameters{
+            booleanParam(name: 'deploy', defaultValue: false, description: 'Select to deploy or not')
+        }
+        environment {
+            appVersion = '' // this will become global, we can use across pipeline
+            region = 'us-east-1'
+            account_id = '315069654700'
+            project = configMap.get("project")
+            environment = 'dev'
+            component = configMap.get("component")
+        }
+
+        stages {
+            stage('Read the version') {
+                steps {
+                    script{
+                        def packageJson = readJSON file: 'package.json'
+                        appVersion = packageJson.version
+                        echo "App version: ${appVersion}"
+                    }
+                }
+            }
+            stage('Install Dependencies') {
+                steps {
+                    sh 'npm install'
+                }
+            }
+            /* stage('SonarQube analysis') {
+                environment {
+                    SCANNER_HOME = tool 'sonar-6.0' //scanner config
+                }
+                steps {
+                    // sonar server injection
+                    withSonarQubeEnv('sonar-6.0') {
+                        sh '$SCANNER_HOME/bin/sonar-scanner'
+                        //generic scanner, it automatically understands the language and provide scan results
+                    }
+                }
+            }
+
+            stage('SQuality Gate') {
+                steps {
+                    timeout(time: 5, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
+                }
+            } */
+            stage('Docker build') {
+                
+                steps {
+                    withAWS(region: 'us-east-1', credentials: 'aws-creds') {
+                        sh """
+                        aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${account_id}.dkr.ecr.us-east-1.amazonaws.com
+
+                        docker build -t ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion} .
+
+                        docker images
+
+                        docker push ${account_id}.dkr.ecr.us-east-1.amazonaws.com/${project}/${environment}/${component}:${appVersion}
+                        """
+                    }
+                }
+            }
+            stage('Deploy'){
+                when{
+                    expression {params.deploy}
+                }
+
+                steps{
+                    build job: "../${component}-cd", parameters: [
+                        string(name: 'version', value: "$appVersion"),
+                        string(name: 'ENVIRONMENT', value: "dev"),
+                    ], wait: true
+                }
+            }
+        }
+
+        post {
+            always{
+                echo "This sections runs always"
+                deleteDir()
+            }
+            success{
+                echo "This section run when pipeline success"
+            }
+            failure{
+                echo "This section run when pipeline failure"
+            }
+        }
+    }
+}
+
+
+In backend folder, Jenkinsfile 
+================================
+
+
+@Library('jenkins-shared-library') _ // gets the global pipeline libraries in system configuration
+
+def configmap = [
+    project: "expense",
+    component: "backend"
+]
+
+if( ! env.BRANCH_NAME.equalsIgnoreCase('main')){ // true, if branch is feature branch
+    nodeJSEKSPipeline(configmap)
+}
+else{
+    echo "Follow the process of PROD release"
+}
+
+
+
+
+Map/dictionary -> key-value pair 
+
+
+we need, 
+1. project 
+2. component
+3. environment -> by default dev 
+
+If new project opportunities approaches
+
+Project Onboarding 
+--------------------
+1. programming language 
+2. deployment platform 
+3. branching strategy -> feature branching strategy 
+
+SOP(Standard Operating procedure) -> if any new project comes, we meet development team and steup below things 
+Jenkins folder 
+SonarQube 
+k8 namespace 
+ECR repo 
+Veracode target 
+Github dependabot 
+Dockerfile 
+Helm charts 
+
+-> A devops engineer from that project co-ordinates about the project and the requirements 
+
+
+In dashboard -> manage jenkins -> system configuration 
+	In Global Trusts pipeline libraries 
+	click on add 
+		Name - jenkins-shared-library
+		Default version - main 
+		check box the Load implicity, allow default version and Include @Library changes 
+		Retrieval method - Modern SCM 
+		Source Code Management - Git 
+		Project repository - jenkins-shared-library repo https url 
+	apply and save 
+	
+	
+Now, delete the backend-ci in jenkins dashboard 
+
+-> In dashboard -> new item 
+	enter an item name - backend-ci 
+	select Multibranch pipeline
+	click on OK 
+	Branch source 
+		click on add source - select Git 
+		project repository - backend repo https url 
+		property strategy - All branches get the same properties 
+	Script path - Jenkinsfile	
+	apply and save 
+	
+-> click on scan Multibranch pipeline now (it scans all the branches)
+
+-> git checkout -b new-feature 
+-> do some changes in files in backend folder 
+-> git add . ; git commit -m "msg"; git push origin new-feature
+
+Now, go to jenkins page and click on scan multibranch pipeline so, that it can automatically identify the new branches and build it 
+
+-> we will get the parameters, click on build with parameters 
+-> select deploy and click on build 
+
+In jenkins-shared-library, in vars sub-folder 
+
+pipelineGlobals.groovy
+==========================
+
+def getAccountID(String environment){
+    switch(environment) { 
+        case 'dev': 
+            return "169810528182"
+        case 'qa':
+            return "169810528182"
+        case 'uat':
+            return "169810528182"
+        case 'pre-prod':
+            return "169810528182"
+        case 'prod':
+            return "169810528182"
+        default:
+            return "nothing"
+    } 
+}
+
+
+-> click on build with parameters and select deploy and click on build 
+
+	
+After completing the new-feature project 
+-> we have to raise the pull request in github 
+-> raise the pull request in backend and compare the pull request in backend repo 
+-> click on compare and pull request 
+-> comparing changes 
+	add a title - cicd-tools 
+	click on pull request 
+	After reviwing everything 
+	click on merge the pull request 
+	confirm merge 
+	
+-> after pulling the request, go to jenkins page 
+-> In dashboard -> EXPENSE -> backend -> backend-cd 
+	click on build with parameters 
+		select the environment - qa, uat, dev, prod etc 
+		version - 
+	click on build 
+	
+	
+
+In production, we have CR(central release) process 
+
+-> create a free account in Jira with your google account 
+-> create a new big project - backend 
+-> click on create 
+	project - backend (NBP)
+	summary - Backend Release 1.0.5 
+	priority - Highest 
+	labels - deployment 
+	due date - 
+	click on create 
+
+After creating the task, it goes to different levels 
+-> click on the task -> assign to me 
+-> In To Do -> select Done (approval by jira team)
+
+
+-> In jenkins page, in backend-cd click on build with parameters 
+	select environment - prod 
+	version - 1.0.5 
+	click on build 
+	
+-> we will not get for first time, so do the same for second time 
+-> In jenkins page, in backend-cd click on build with parameters 
+	select environment - prod 
+	version - 1.0.5
+	jira-id - NBP-1
+	click on build 
+	
+	
+
