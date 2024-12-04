@@ -1,0 +1,250 @@
+Day-71 session-71(02/12/2024)
+-------------------------------
+Monitoring 
+===============
+
+Black box testing -> we don't know what is inside --> end users without knowing internal details
+white box testing -> wee know what is inside -> internal users can do this 
+
+Monitoring
+==============
+
+Collecting, processing, aggregating, and displaying real-time quantitative data about a system, such as query counts and types, error counts and types, processing times, and server lifetimes
+
+White-box monitoring
+======================
+
+Monitoring based on metrics exposed by the internals of the system, including logs, interfaces like the Java Virtual Machine Profiling Interface, or an HTTP handler that emits internal statistics.
+
+
+Black-box monitoring
+=====================
+
+Testing externally visible behavior as a user would see it.
+
+
+RCA -> Root Cause Analysis (In this we have why incident came, when it came etc.,)
+
+Four golden signals 
+======================
+
+1. Latency -> How fast our system is responding 
+2. Traffic -> How many requests to the system 
+3. Errors -> Monitor for 5xx errors 
+4. Saturation -> measure system resources 
+
+Prometheus 
+===========
+-> Prometheus is a bird name 
+
+example; 
+CCTV -> cameras, central system 
+cameras -> they are like agents, collecting the live videos and sending to the central system 
+-> these are agent based systems eg., master-agent, sonarqube 
+
+Time-series database 
+=====================
+-> timestamp is very important 
+-> daily expenditure -> date is input 
+-> Quarterly, Half yearly, Anual expenditure, weekly expenditure 
+-> with the time series database, we can notedown the the time and solve the issues in that particular time 
+
+Prometheus installation 
+========================
+
+-> create a Prometheus server(instance) -> t3.medium 
+-> take the ip address and login to the super putty 
+-> sudo su - 
+-> cd /opt/
+
+-> Go to chrome, search for prometheus installation 
+-> click on download and select linux and right click on it and copy the link address
+-> wget https://github.com/prometheus/prometheus/releases/download/v3.0.1/prometheus-3.0.1.linux-amd64.tar.gz
+-> ls -l 
+-> tar -xf prometheus-3.0.1.linuz-amd64.tar.gz 
+-> ls -l 
+-> mv prometheus-3.0.1.linux-amd64 prometheus
+-> cd prometheus
+-> ls -l 
+-> cat prometheus.yml 
+
+
+-> vim /etc/systemd/system/prometheus.service 
+
+[Unit]
+Description=Prometheus Server 
+
+[Server]
+ExecStart=/opt/prometheus/prometheus --config.file=/opt/prometheus/prometheus.yml 
+
+[Install]
+WantedBy=multi-user.target 
+
+-> systemctl start prometheus
+-> systemctl status prometheus
+-> netstat -lntp (port number 9090 gets opened)
+-> systemctl enable prometheus
+
+-> Take the public ip address of prometheus and apply it in chrome 
+->eg., <ip-address>:9090 
+
+-> prometheus is a time-series database server. It is simple but powerful 
+
+-> Instant value - search for up and click on execute 
+-> Historical value - search for up[1m] and click on execute -> it shows the last 1 minute information along with time stamp 
+-> search for prometheus_http request -> it shows the list of request with the path 
+
+
+-> Http server query the time series database and gives the information to the users 
+
+-> create another instance called as node-1 
+-> we have to install the agent in it and connect it to the prometheus server 
+-> that agent is called as node_exporter 
+
+-> sudo su - 
+-> cd /opt/ 
+-> In chrome, search for prometheus installation and click on download and select for linux in node_exporter
+-> wget https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz
+-> tar -xf node_exporter-1.8.2.linuz-amd64.tar.gz 
+-> mv node_exporter-1.8.2.linux-amd64 node_exporter
+-> ls -l 
+-> cd node_exporter
+-> ls -l 
+-> vim /etc/systemd/system/node_exporter.service 
+
+[Unit]
+Description=Node Exporter
+
+[Server]
+ExecStart=/opt/node_exporter/node_exporter
+
+[Install]
+WantedBy=multi-user.target 
+
+-> systemctl restart node_exporter
+-> systemctl status node_exporter
+-> systemctl enabel node_exporter
+-> netstat -lntp (9100 port number opens)
+
+-> In prometheus page, search for prometheus_http request and beside of that we can find the statusso, click that dropdown and select the configuration 
+
+
+prometheus.yaml in concepts repo
+================
+In prometheus server, 
+
+-> vim prometheus.yml 
+
+# my global config
+global:
+  scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "prometheus"
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          name: "prometheus"
+
+  - job_name: "node-1"
+    static_configs:
+      - targets: ["<node-1 private-ip>:9100"]
+        labels:
+          name: "node-1"
+-> systemctl restart prometheus
+-> systemctl status prometheus
+
+-> In prometheus page, search for up. we will get the node details with prometheus
+-> up[1m]
+
+-> Now, stop the node-1 server and check in the prometheus page -> graph gets down 
+
+Service discovery 
+==================
+-> prometheus discover the nodes under every user 
+-> whatever we added nodes that comes under service discovery 
+
+-> In prometheus page, search for memory_bytes and node_memory_bytes 
+
+-> Take new ip address for node-1. becoz, you have stopped the node server 
+-> free (RAM usage)
+-> ifconfig 
+
+
+-> Now, install the grafana 
+-> search for grafana installation RHEL
+
+-> we have to install grafana in prometheus server 
+-> Instead of querying the prometheus, this grafana query the prometheus and shows in a visualization 
+-> grafana query the http server and user connects to the grafana and grafana gives the data to the user 
+
+-> curl -o gpg.key https://rpm.grafana.com/gpg.key
+-> sudo rpm --import gpg.key
+-> vim /etc/yum.repos.d/grafana.repo
+
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+
+-> sudo dnf install grafana -y 
+-> systemctl daemon-reload 
+-> systemctl start grafana-server 
+-> systemctl enable grafana-server
+-> netstat -lntp (it opens the 3000 port number)
+
+-> Now, take the prometheus server ip address and paste it in chrome 
+eg., 3.88.30.252:3000 
+
+-> grafana page opens. so, enter the username and password 
+username: admin 
+password: admin 
+
+Update the password
+
+-> Grafana is a open source 
+-> Now, go to grafana page -> in connections -> click on add new connections 
+-> search for prometheus and click on add new data source 
+-> prometheus server url - http://localhost:9090 
+-> click on save and test 
+
+-> click on dashboards, click on add visualization
+and select the prometheus
+-> click on code and search for up and click on run queries 
+-> on right side, click on add dashboard 
+-> select Guage, and add thresholds - zero for red and one for green 
+-> click on save dashboard, give the name - DEMO and click on save 
+
+
+
+
+
+
+https://bitbucket.org/sdlc3/helloworld-springboot/src/master/pom.xml
+

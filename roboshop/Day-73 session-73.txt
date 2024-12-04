@@ -1,0 +1,445 @@
+Day-73 session-73(04/12/2024)
+--------------------------------
+Roboshop project 
+==================
+MongoDB -> NoSQL database(documents and collections). SQL database(tables and rows)
+Redis -> cache database
+
+Application -> database -> save the results in cache
+==========================
+1. open database connection 
+2. run query and get the results 
+3. close the connection 
+
+Application -> cache database -> database
+
+RabbitMQ -> messaging Queue, kafka, ActiveMQ, JBOSS ESB server 
+
+Asynchronus communication-> another system need not to be up and running
+ 
+synchronus communication -> whenever you send request you should get immediate response eg.., HTTP request 
+
+
+system-1 --> MQ server -> system-2 
+-> system-1 sends request to MQ server and if system-2 is up then only MQ server sends to it or else it waits 
+-> system-1 is called publisher and system-2 is called subscriber 
+
+eg., Ramesh sends message to suresh 
+eg-2 Youtube notification --> upload video -> MQ server -> push to all subscribers 
+
+
+-> create a folder - roboshop-infra-manual 
+
+data.tf 
+=========
+
+data "aws_ami" "joindevops" {
+
+	most_recent      = true
+	owners = ["973714476881"]
+	
+	filter {
+		name   = "name"
+		values = ["RHEL-9-DevOps-Practice"]
+	}
+	
+	filter {
+		name   = "root-device-type"
+		values = ["ebs"]
+	}
+
+    filter {
+        name   = "virtualization-type"
+        values = ["hvm"]
+    }
+}
+
+
+main.tf 
+========
+
+resource "aws_instance" "roboshop" {
+  for_each = var.instances #each.key and each.value
+  ami           = data.aws_ami.joindevops.id
+  instance_type = each.value
+  vpc_security_group_ids = [var.allow_all]
+  tags = {
+    Name = each.key
+  }
+}
+
+resource "aws_route53_record" "www" {
+  for_each = aws_instance.roboshop
+  zone_id = var.zone_id
+  name    = each.key == "frontend" ? var.domain_name : "${each.key}.${var.domain_name}"
+  type    = "A"
+  ttl     = 1
+  records = each.key == "frontend" ? [each.value.public_ip] : [each.value.private_ip]
+  allow_overwrite = true
+}
+
+
+provider.tf 
+==============
+
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.66.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "81s-remote-state-dev"
+    key    = "roboshop-manual"
+    region = "us-east-1"
+    dynamodb_table = "81s-locking-dev"
+  }
+}
+
+provider "aws" {
+  # Configuration options
+  region = "us-east-1"
+}
+
+
+variables.tf 
+==============
+
+variable "instances" {
+  type        = map
+  default     = {
+    mongodb = "t3.small"
+    redis = "t3.micro"
+    mysql = "t3.small"
+    rabbitmq = "t3.micro"
+    catalogue = "t3.micro"
+    user = "t3.micro"
+    cart = "t3.micro"
+    shipping = "t3.small"
+    payment = "t3.micro"
+    dispatch = "t3.micro"
+    frontend = "t3.micro"
+  }
+}
+
+variable "allow_all" {
+    type = string
+    default = "sg-0fea5e49e962e81c9"
+}
+
+variable "zone_id" {
+    default = "Z09912121MS725XSKH1TG"
+}
+
+variable "domain_name" {
+    default = "daws81s.fun"
+}
+
+
+-> cd ../roboshop-infra-manual/
+-> terraform init 
+-> terraform plan 
+-> terraform apply -auto-approve 
+
+MongoDB 
+============
+
+-> Take the ip address of mongodb 
+-> sudo su - 
+-> vim /etc/yum.repos.d/mongo.repo
+
+[mongodb-org-7.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/7.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-7.0.asc
+
+-> dnf install mongodb-org -y 
+-> systemctl enable mongod
+-> systemctl start mongod
+-> vim /etc/mongod.conf
+
+Update listen address from 127.0.0.1 to 0.0.0.0 in /etc/mongod.conf
+
+-> systemctl restart mongod
+-> netstat -lntp 
+
+mongodb port number -> 27017
+
+Redis 
+=======
+
+-> Take the ip address of Redis 
+-> sudo su - 
+-> dnf install redis -y
+-> vim /etc/redis/redis.conf
+
+Update listen address from 127.0.0.1 to 0.0.0.0 in /etc/redis.conf & /etc/redis/redis.conf
+
+-> systemctl enable redis
+-> systemctl start redis
+-> netstat -lntp 
+redis port number -> 6379
+
+Mysql 
+========
+
+-> take the ip address of mysql 
+-> sudo su - 
+-> dnf install mysql-server -y
+-> systemctl enable mysqld
+-> systemctl start mysqld
+-> mysql_secure_installation --set-root-pass RoboShop@1
+-> mysql -uroot -pRoboShop@1
+-> netstat -lntp 
+mysql port number -> 3306 
+
+database -> by default they are not exposed to outside 
+
+RabbitMQ 
+===========
+
+-> take the ip address of rabbitmq 
+-> sudo su - 
+-> curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | bash
+-> curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash
+-> dnf install rabbitmq-server -y 
+-> systemctl enable rabbitmq-server 
+-> systemctl start rabbitmq-server 
+-> rabbitmqctl add_user roboshop roboshop123
+-> rabbitmqctl set_permissions -p / roboshop ".*" ".*" ".*"
+-> netstat -lntp 
+rabbitmq port number -> 5672
+
+
+catalouge,user and cart - they are nodejs application 
+
+Catalogue
+============
+
+-> take the catalogue ip address 
+-> sudo su - 
+-> dnf module disable nodejs -y
+-> dnf module enable nodejs:20 -y
+-> dnf install nodejs -y
+-> useradd roboshop
+-> mkdir /app
+-> curl -o /tmp/catalogue.zip https://roboshop-builds.s3.amazonaws.com/catalogue.zip
+-> cd /app 
+-> unzip /tmp/catalogue.zip
+-> cd /app
+-> npm install 
+-> vim /etc/systemd/system/catalogue.service
+
+[Unit]
+Description = Catalogue Service
+
+[Service]
+User=roboshop
+Environment=MONGO=true
+Environment=MONGO_URL="mongodb://mongodb.daws81s.fun:27017/catalogue"
+ExecStart=/bin/node /app/server.js
+SyslogIdentifier=catalogue
+
+[Install]
+WantedBy=multi-user.target
+
+-> systemctl daemon-reload
+-> systemctl enable catalogue
+-> systemctl start catalogue
+-> vim /etc/yum.repos.d/mongo.repo
+
+[mongodb-org-7.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/7.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-7.0.asc
+
+-> dnf install -y mongodb-mongosh
+-> mongosh --host mongodb.daws81s.fun </app/schema/catalogue.js
+-> netstat -lntp 
+-> curl http://localhost:8080/health 
+
+User 
+==========
+
+-> take the user ip address 
+-> sudo su - 
+-> dnf module disable nodejs -y
+-> dnf module enable nodejs:20 -y
+-> dnf install nodejs -y
+-> useradd roboshop
+-> mkdir /app
+-> curl -L -o /tmp/user.zip https://roboshop-builds.s3.amazonaws.com/user.zip
+-> cd /app 
+-> unzip /tmp/user.zip
+-> cd /app 
+-> npm install 
+-> vim /etc/systemd/system/user.service
+
+[Unit]
+Description = User Service
+[Service]
+User=roboshop
+Environment=MONGO=true
+Environment=REDIS_HOST=redis.daws81s.fun
+Environment=MONGO_URL="mongodb://mongodb.daws81s.fun:27017/users"
+ExecStart=/bin/node /app/server.js
+SyslogIdentifier=user
+
+[Install]
+WantedBy=multi-user.target
+
+-> systemctl daemon-reload
+-> systemctl enable user 
+-> systemctl start user
+-> vim /etc/yum.repos.d/mongo.repo
+
+[mongodb-org-7.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/7.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-7.0.asc
+
+-> dnf install mongodb-mongosh -y
+-> mongosh --host mongodb.daws81s.fun </app/schema/user.js
+-> netstat -lntp 
+-> curl http://localhost:8080/health 
+
+Cart 
+========
+
+-> take the cart ip address 
+-> sudo su - 
+-> dnf module disable nodejs -y
+-> dnf module enable nodejs:20 -y
+-> dnf install nodejs -y
+-> useradd roboshop
+-> mkdir /app
+-> curl -L -o /tmp/cart.zip https://roboshop-builds.s3.amazonaws.com/cart.zip
+-> cd /app 
+-> unzip /tmp/cart.zip
+-> cd /app 
+-> npm install 
+-> vim /etc/systemd/system/cart.service
+
+[Unit]
+Description = Cart Service
+[Service]
+User=roboshop
+Environment=REDIS_HOST=redis.daws81s.fun
+Environment=CATALOGUE_HOST=catalogue.daws81s.fun
+Environment=CATALOGUE_PORT=8080
+ExecStart=/bin/node /app/server.js
+SyslogIdentifier=cart
+
+[Install]
+WantedBy=multi-user.target
+
+-> systemctl daemon-reload
+-> systemctl enable cart 
+-> systemctl start cart
+-> netstat -lntp 
+-> curl http://localhost:8080/health 
+
+Frontend 
+============
+-> take the ip address of frontend 
+-> sudo su - 
+-> dnf install nginx -y
+-> systemctl enable nginx
+-> systemctl start nginx
+-> rm -rf /usr/share/nginx/html/*
+-> curl -o /tmp/web.zip https://roboshop-builds.s3.amazonaws.com/web.zip
+-> cd /usr/share/nginx/html
+-> unzip /tmp/web.zip
+-> vim /etc/nginx/default.d/roboshop.conf 
+
+proxy_http_version 1.1;
+location /images/ {
+  expires 5s;
+  root   /usr/share/nginx/html;
+  try_files $uri /images/placeholder.jpg;
+}
+location /api/catalogue/ { proxy_pass http://catalogue.daws81s.fun:8080/; }
+location /api/user/ { proxy_pass http://user.daws81s.fun:8080/; }
+location /api/cart/ { proxy_pass http://cart.daws81s.fun:8080/; }
+location /api/shipping/ { proxy_pass http://shipping.daws81s.fun:8080/; }
+location /api/payment/ { proxy_pass http://payment.daws81s.fun:8080/; }
+
+location /health {
+  stub_status on;
+  access_log off;
+}
+
+-> systemctl restart nginx 
+
+-> Now access the application in chrome -> http://daws81s.fun 
+
+
+java -> compile -> bytecode -> run this bytecode 
+JDK -> we must need this at the time of development 
+JRE -> we need this at the time or running 
+
+JRE is the subset of JDK 
+
+pom.xml 
+mvn package -> target/app.jar 
+
+
+Shipping 
+==========
+
+-> take the ip address of shipping 
+-> dnf install maven -y
+-> useradd roboshop
+-> mkdir /app
+-> curl -L -o /tmp/shipping.zip https://roboshop-builds.s3.amazonaws.com/shipping.zip
+-> cd /app
+-> unzip /tmp/shipping.zip
+-> ls -l 
+-> cat pom.xml 
+
+groupID, artifactID and version 
+
+example., 
+--------
+students -> firstname, lastname, dob, pancard 
+
+com.facebook -> groupID 
+whatsapp.android -> artifactID 
+v1.0.3 -> version 
+
+
+-> cd /app
+-> mvn clean package
+-> mv target/shipping-1.0.jar shipping.jar
+-> vim /etc/systemd/system/shipping.service
+
+[Unit]
+Description=Shipping Service
+
+[Service]
+User=roboshop
+Environment=CART_ENDPOINT=cart.daws81s.fun:8080
+Environment=DB_HOST=mysql.daws81s.fun
+ExecStart=/bin/java -jar /app/shipping.jar
+SyslogIdentifier=shipping
+
+[Install]
+WantedBy=multi-user.target
+
+-> systemctl daemon-reload
+-> systemctl enable shipping 
+-> systemctl start shipping
+-> dnf install mysql -y
+-> mysql -h mysql.daws81s.fun -uroot -pRoboShop@1 < /app/db/schema.sql
+-> systemctl restart shipping
+-> less /var/log/messages 
+
+

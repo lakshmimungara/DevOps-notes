@@ -1,0 +1,432 @@
+Day-72 session-72(03/12/2024)
+------------------------------
+Recap:
+=========
+prometheus 
+-----------
+-> prometheus is Time series database 
+-> It has http server component and users connect through http server 
+-> we will have grafana for better visualization
+->  we have service discovery mechanism to identify the taregts 
+-> alert manager component to manage the alerts 
+
+-> create an instance called promethenus -> t3.medium
+
+-> sudo su - 
+-> cd /opt/
+-> wget https://github.com/prometheus/prometheus/releases/download/v3.0.1/prometheus-3.0.1.linux-amd64.tar.gz
+-> tar -xf prometheus-3.0.1.linux-amd64.tar.gz
+-> mv prometheus-3.0.1.linux-amd64 prometheus
+-> vim /etc/systemd/system/prometheus.service
+
+[Unit]
+Description=Prometheus Server
+
+[Service]
+ExecStart=/opt/prometheus/prometheus --config.file=/opt/prometheus/prometheus.yml
+
+[Install]
+WantedBy=multi-user.target
+
+-> systemctl start prometheus
+-> systemctl enable prometheus
+
+-> Now, take the ip address of promethenus and paste it in chrome 
+eg., 54.198.102.154:9090 
+
+
+dynamic scrapping 
+==================
+1. our targets should have node_exporter installed 
+2. prometheus server should have permission to describe ec2 instances 
+3. we can filter the instances based on tags, regions, az, etc 
+
+-> create an instances called node-1 and node-2 -> t3.micro 
+
+-> sudo su - 
+-> cd /opt/ 
+-> In chrome, search for prometheus installation and click on download and select for linux in node_exporter
+-> wget https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz
+-> tar -xf node_exporter-1.8.2.linuz-amd64.tar.gz 
+-> mv node_exporter-1.8.2.linux-amd64 node_exporter
+-> ls -l 
+-> cd node_exporter
+-> ls -l 
+-> vim /etc/systemd/system/node_exporter.service 
+
+[Unit]
+Description=Node Exporter
+
+[Server]
+ExecStart=/opt/node_exporter/node_exporter
+
+[Install]
+WantedBy=multi-user.target 
+
+-> systemctl restart node_exporter
+-> systemctl status node_exporter
+-> systemctl enabel node_exporter
+-> netstat -lntp (9100 port number opens)
+
+-> promethenus should have permission. so we should create IAM 
+
+-> go to IAM,click on policies 
+-> create policy 
+-> EC2 
+-> select from list -> DescribeInstances
+-> click on next 
+-> policy name - DescribeEC2 
+-> click on create policy 
+
+Now, create role 
+-> go to roles 
+-> click on create role 
+-> Use case -> service or usecase -> EC2 
+-> click on next 
+-> search for DescribeEC2
+-> click on next 
+-> role name - EC2DescribeForPrometheus 
+-> click on create role
+
+-> Go to prometheus instance
+-> click on actions -> security -> modify IAM 
+-> IAM role -> EC2DescribeForPrometheus
+-> click on update IAM role 
+
+-> Go to node-1 instance 
+-> and go to tags -> click on manage tags 
+-> key - monitoring and value - true  
+-> click on save 
+
+-> Go to node-2 instance 
+-> and go to tags -> click on manage tags 
+-> key - monitoring and value - true  
+-> click on save 
+
+
+-> Now, go to prometheus instance in superputty 
+-> cd prometheus
+-> cat prometheus.yml 
+
+-> create a folder prometheus and repo prometheus
+
+prometheus.yml 
+================
+
+# my global config
+global:
+  scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - "localhost:9093"
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  - "alert-rules/*.yaml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "prometheus"
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: ec2
+    ec2_sd_configs:
+    - region: us-east-1
+      port: 9100
+      filters:
+        - name: tag:Monitoring
+          values:
+            - true
+    relabel_configs:
+      - source_labels:
+          - __meta_ec2_instance_id
+        target_label: instance_id
+      - source_labels:
+          - __meta_ec2_tag_Name
+        target_label: name
+      - source_labels:
+          - __meta_ec2_private_ip
+        target_label: private_ip
+		
+
+-> vim prometheus.yml 
+-> paste the above content 
+-> systemctl restart prometheus
+-> less /var/log/messages 
+
+Now, in prometheus page, search for up and click on execute (we will get the node_exporter instances)
+
+-> now, stop the node-1 server instance 
+-> again search for up < 1 and click on execute (we will get the one instance down) 
+-> so, we have to raise alerts for one instance down 
+
+-> In prometheus server instance in superputty 
+-> mkdir alert-rules 
+-> cd alert-rules/
+
+
+-> create a sub-folder in prometheus folder called as alert-rules 
+
+instance-down.yaml 
+====================
+groups:
+- name: InstanceDown
+  labels:
+    team: myteam
+  rules:
+  - alert: InstanceDownAlert
+    expr: up < 1
+    for: 1m
+    keep_firing_for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: Instance is Down
+	  
+-> In prometheus server instance in superputty 
+-> vim instance-down.yaml 
+-> paste the above content 
+-> systemctl restart prometheus
+	  
+	  
+-> In prometheus page, go to alerts (so, we can find the InstanceDown)
+
+-> In prometheus installation page, in download and click on alertmanager 
+-> cd .. 
+-> cd /opt/ 
+-> wget https://github.com/prometheus/alertmanager/releases/download/v0.28.0-rc.0/alertmanager-0.28.0-rc.0.linux-amd64.tar.gz
+-> ls -l 
+-> tar -xf alertmanager-0.28.0-rc.0.linux-amd64.tar.gz
+-> mv alertmanager-0.28.0-rc.0.linux-amd64 alertmanager 
+-> cd alertmanager 
+-> ls -l 
+
+
+In prometheus folder,
+
+alertmanager.service 
+======================
+[Unit]
+Description=AlertManager Server
+
+[Service]
+ExecStart=/opt/alertmanager/alertmanager --config.file=/opt/alertmanager/alertmanager.yml
+
+[Install]
+WantedBy=multi-user.target
+
+-> vim /etc/systemd/system/alertmanager.service 
+-> paste the contents 
+-> systemctl start alertmanager
+-> netstat -lntp (here, two port numbers opened 9093 and 9094)
+
+
+-> take the prometheus ip address and paste it in a chrome 
+eg., 54.123.45.23:9093 
+
+
+-> In AWS, search for Amazon SES 
+-> click on create identity
+-> select email address 
+-> email address - lakshmimungara2997@gmail.com 
+-> click on create identity
+
+-> verify the email address 
+-> after verification, go to SMTP settings copy the SMTP endpoint
+eg., email-smtp.us-east-1.amazonaws.com:587 
+
+-> click on create SMTP credentials 
+-> username - mahalakshmi 
+-> click on create user 
+
+In prometheus server , 
+
+-> cd /opt/alertmanager 
+-> cat alertmanager.yml 
+
+In prometheus folder, 
+
+alertmanager.yml 
+===================
+
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'ses'
+receivers:
+  - name: 'ses'
+    email_configs:
+      - smarthost: 'email-smtp.us-east-1.amazonaws.com:587'
+        auth_username: 'your-username'
+        auth_password: "your-password"
+        from: 'your-from-address'
+        to: 'your-to-address'
+        headers:
+          subject: 'Prometheus Mail Alerts'
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']
+
+-> vim alertmanager.yml 
+
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'ses'
+receivers:
+  - name: 'ses'
+    email_configs:
+      - smarthost: 'email-smtp.us-east-1.amazonaws.com:587'
+        auth_username: 'mahalakshmi'
+        auth_password: "<SMTPpassowrd>"
+        from: 'lakshmimungara2997@gmail'
+        to: 'lakshmimungara2997@gmail'
+        headers:
+          subject: 'Prometheus Mail Alerts'
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']
+	
+
+-> systemctl restart alertmanager 
+
+
+Metrix have two types 
+=======================
+1. counter and 
+2. gauge 
+
+
+example:
+
+CAR 
+KM - 1000
+speed -> 60km/sec 
+
+CPU utilization
+==================
+units -> seconds 
+-> usually measured in percentage 
+
+In prometheus page, 
+
+-> search for node_cpu_seconds_total{mode="idle"} and click on execute 
+-> rate(node_cpu_seconds_total{mode="idle"}[5m]) * 100 
+-> avg by (instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]) * 100)
+
+In prometheus folder -> In alert-rules sub-folder 
+
+cpu.yaml 
+==========
+groups:
+- name: CPUUtlisation
+  labels:
+    team: myteam
+  rules:
+  - alert: CPUUtlisationAlert
+    expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 0.1
+    for: 1m
+    keep_firing_for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: CPUUtlisation is High
+	  
+In prometheus server in superputty 
+-> cd ../prometheus
+-> cd alert-rules
+-> vim cpu.yaml 
+-> paste the above content 
+-> systemctl restart prometheus
+
+-> Now, go to prometheus page and check the alerts 
+-> If it gets firing, then we will get the mail ragrding that alert 
+
+-> Now, install the grafana 
+-> search for grafana installation RHEL
+
+-> we have to install grafana in prometheus server 
+-> Instead of querying the prometheus, this grafana query the prometheus and shows in a visualization 
+-> grafana query the http server and user connects to the grafana and grafana gives the data to the user 
+
+-> curl -o gpg.key https://rpm.grafana.com/gpg.key
+-> sudo rpm --import gpg.key
+-> vim /etc/yum.repos.d/grafana.repo
+
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+
+-> sudo dnf install grafana -y 
+-> systemctl daemon-reload 
+-> systemctl start grafana-server 
+-> systemctl enable grafana-server
+-> netstat -lntp (it opens the 3000 port number)
+
+-> Now, take the prometheus server ip address and paste it in chrome 
+eg., 3.88.30.252:3000 
+
+-> grafana page opens. so enter the username and password 
+username: admin 
+password: admin 
+
+Update the password
+
+-> Grafana is a open source 
+-> Now, go to grafana page -> in connections -> click on add new connections 
+-> search for prometheus and click on add new data source 
+-> prometheus server url - http://localhost:9090 
+-> click on save and test 
+
+-> click on dashboards, click on add visualization
+and select the prometheus
+-> click on code and search for up and In options , in legends select the custom - {name} and click on run queries 
+-> on right side, click on add dashboard 
+-> select Guage, and add thresholds - zero for red and one for green 
+-> click on save dashboard, click on apply, enter the name - UP 
+
+-> click on dashboards, click on add visualization
+and select the prometheus
+-> click on code and search for up and In options , in legends select the custom - {instance} and click on run queries 
+-> on right side, click on add dashboard 
+-> select time series, threshold - 80 is red 
+-> click on save dashboard, click on apply and give the title - RAM usage and save it
+
+-> In prometheus page, search for 100-((node_memory_memFree_bytes/node_memory_memTotal_bytes)*100) and click on execute 
+
+
+-> In node-1, type 'free'
+
+In grafana, type this query 
+-> 100-((node_memory_memFree_bytes/node_memory_memTotal_bytes)*100) and in options, in legends - {name}
+-> select time series, threshold 40 for red -> click on apply -> enter the title - CPUutilization 
+ 
